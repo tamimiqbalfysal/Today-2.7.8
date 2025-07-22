@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useCart } from '@/contexts/cart-context';
-import { X, ShoppingCart } from 'lucide-react';
+import { X, ShoppingCart, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { CartItem } from '@/contexts/cart-context';
 import { ReviewForm } from '@/components/fintrack/review-form';
@@ -44,6 +44,16 @@ export default function CheckoutPage() {
     return priceMatch ? parseFloat(priceMatch[1]) : 0;
   };
 
+  const getDisplayMedia = (product: CartItem['product']) => {
+    if (product.media && product.media.length > 0) {
+      return product.media.find(m => m.type === 'image') || product.media[0];
+    }
+    if (product.mediaURL) {
+      return { url: product.mediaURL, type: product.mediaType || 'image' };
+    }
+    return null;
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background">
       <main className="flex-1 overflow-y-auto">
@@ -64,24 +74,33 @@ export default function CheckoutPage() {
                   <CardTitle>Your Items</CardTitle>
                 </CardHeader>
                 <CardContent className="divide-y">
-                  {purchasedItems.map(item => (
-                    <div key={item.product.id} className="py-6 space-y-4">
-                      <div className="flex items-center gap-4">
-                        <Image
-                          src={item.product.mediaURL!}
-                          alt={item.product.authorName}
-                          width={80}
-                          height={80}
-                          className="rounded-md object-cover aspect-square"
-                        />
-                        <div className="flex-1 space-y-1">
-                          <p className="font-semibold">{item.product.authorName}</p>
-                          <p className="text-sm text-muted-foreground">${getPrice(item.product.content).toFixed(2)}</p>
+                  {purchasedItems.map(item => {
+                    const displayMedia = getDisplayMedia(item.product);
+                    return (
+                        <div key={item.product.id} className="py-6 space-y-4">
+                        <div className="flex items-center gap-4">
+                           {displayMedia && displayMedia.type === 'image' ? (
+                                <Image
+                                src={displayMedia.url}
+                                alt={item.product.authorName}
+                                width={80}
+                                height={80}
+                                className="rounded-md object-cover aspect-square"
+                                />
+                            ) : (
+                                <div className="w-[80px] h-[80px] bg-secondary rounded-md flex items-center justify-center">
+                                    <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                                </div>
+                            )}
+                            <div className="flex-1 space-y-1">
+                            <p className="font-semibold">{item.product.authorName}</p>
+                            <p className="text-sm text-muted-foreground">${getPrice(item.product.content).toFixed(2)}</p>
+                            </div>
                         </div>
-                      </div>
-                      <ReviewForm productId={item.product.id} />
-                    </div>
-                  ))}
+                        <ReviewForm productId={item.product.id} />
+                        </div>
+                    );
+                  })}
                 </CardContent>
                 <CardFooter>
                   <Button asChild variant="outline" className="w-full">
@@ -100,15 +119,22 @@ export default function CheckoutPage() {
                   <CardContent className="divide-y">
                     {cartItems.map(item => {
                        const price = getPrice(item.product.content);
+                       const displayMedia = getDisplayMedia(item.product);
                        return (
                           <div key={item.product.id} className="flex items-center gap-4 py-4">
-                            <Image
-                              src={item.product.mediaURL!}
-                              alt={item.product.authorName}
-                              width={80}
-                              height={80}
-                              className="rounded-md object-cover aspect-square"
-                            />
+                             {displayMedia && displayMedia.type === 'image' ? (
+                                <Image
+                                    src={displayMedia.url}
+                                    alt={item.product.authorName}
+                                    width={80}
+                                    height={80}
+                                    className="rounded-md object-cover aspect-square"
+                                />
+                             ) : (
+                                <div className="w-[80px] h-[80px] bg-secondary rounded-md flex items-center justify-center">
+                                    <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                                </div>
+                             )}
                             <div className="flex-1 space-y-1">
                               <p className="font-semibold">{item.product.authorName}</p>
                               <p className="text-sm text-muted-foreground">${price.toFixed(2)}</p>
