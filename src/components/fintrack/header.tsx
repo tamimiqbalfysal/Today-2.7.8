@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import Link from 'next/link';
-import { Menu, PenSquare, Trash2, User, LogOut, Home, PlusCircle, ShoppingCart } from "lucide-react";
+import { Menu, PenSquare, Trash2, User, LogOut, Home, PlusCircle, ShoppingCart, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -145,6 +145,9 @@ export function Header({ isVisible = true }: HeaderProps) {
 
               {/* Right: Another Drawer */}
               <div className="justify-self-end flex items-center gap-2">
+                <Button size="icon" variant="ghost" className="rounded-full">
+                    <Search />
+                </Button>
                 <Sheet open={isProfileDrawerOpen} onOpenChange={setIsProfileDrawerOpen}>
                   <SheetTrigger asChild>
                       <Button size="icon" variant="ghost" className="rounded-full">
