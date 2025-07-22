@@ -287,8 +287,8 @@ export default function TribePage() {
                             <SelectValue placeholder="Select a currency" />
                           </SelectTrigger>
                           <SelectContent>
-                            {uniqueCurrencies.map((currencyCode) => (
-                              <SelectItem key={currencyCode} value={currencyCode}>
+                            {uniqueCurrencies.map((currencyCode, index) => (
+                              <SelectItem key={`${currencyCode}-${index}`} value={currencyCode}>
                                 {currencyCode}
                               </SelectItem>
                             ))}
