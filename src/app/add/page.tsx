@@ -17,12 +17,12 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 const apps: DrawerApp[] = [
   { id: 'thankug', name: 'Thanku G', logo: '/thankug-logo.png', href: '/thank-you' },
   { id: 'bitt', name: 'Bitt', logo: 'https://placehold.co/48x48/fde047/000000?text=B', href: '/bitt' },
+  { id: 'think', name: 'Think', logo: '/think-logo.png', href: '/think' },
+  { id: 'findit', name: 'Findit', logo: '/findit-logo.png', href: '#' },
+  { id: 'mingle', name: 'Mingle', logo: '/mingle-logo.png', href: '#' },
 ];
 
 const moreApps: DrawerApp[] = [
-    { id: 'think', name: 'Think', logo: '/think-logo.png', href: '/think' },
-    { id: 'findit', name: 'Findit', logo: '/findit-logo.png', href: '#' },
-    { id: 'mingle', name: 'Mingle', logo: '/mingle-logo.png', href: '#' },
     { id: 'attom', name: 'Attom', logo: 'https://placehold.co/48x48/9ca3af/FFFFFF?text=A', href: '/attom' },
 ];
 
@@ -161,8 +161,7 @@ export default function AddPage() {
                       <>
                         <div className="text-center mt-4">
                           <Button variant="ghost" onClick={() => setShowMoreApps(!showMoreApps)}>
-                            {showMoreApps ? "Show Less" : "Show More"}
-                            {showMoreApps ? <ChevronUp className="h-4 w-4 ml-2" /> : <ChevronDown className="h-4 w-4 ml-2" />}
+                            {showMoreApps ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                           </Button>
                         </div>
                         {showMoreApps && (
