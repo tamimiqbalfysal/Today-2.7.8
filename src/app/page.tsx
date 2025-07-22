@@ -118,7 +118,7 @@ export default function TodayPage() {
                 const reactionField = reaction === 'like' ? 'likes' : 'laughs';
                 const currentReactors: string[] = postData[reactionField] || [];
                 const isReacting = !currentReactors.includes(reactorId);
-
+                
                 const updateData: { [key: string]: any } = {};
 
                 if (isReacting) {
@@ -193,26 +193,26 @@ export default function TodayPage() {
       if (!user || !db || (!content.trim() && !file && !contentBangla.trim() && !fileBangla && postType === 'original')) return;
   
       try {
+        let mediaURL: string | undefined = undefined;
+        let mediaType: 'image' | 'video' | undefined = undefined;
+        let mediaURLBangla: string | undefined = undefined;
+        let mediaTypeBangla: 'image' | 'video' | undefined = undefined;
+  
+        if (file && storage) {
+          const storageRef = ref(storage, `posts/${user.uid}/${Date.now()}_${file.name}`);
+          const snapshot = await uploadBytes(storageRef, file);
+          mediaURL = await getDownloadURL(snapshot.ref);
+          mediaType = file.type.startsWith('image/') ? 'image' : 'video';
+        }
+
+        if (fileBangla && storage) {
+          const storageRef = ref(storage, `posts/${user.uid}/${Date.now()}_${fileBangla.name}_bn`);
+          const snapshot = await uploadBytes(storageRef, fileBangla);
+          mediaURLBangla = await getDownloadURL(snapshot.ref);
+          mediaTypeBangla = fileBangla.type.startsWith('image/') ? 'image' : 'video';
+        }
+
         await runTransaction(db, async (transaction) => {
-            let mediaURL: string | undefined = undefined;
-            let mediaType: 'image' | 'video' | undefined = undefined;
-            let mediaURLBangla: string | undefined = undefined;
-            let mediaTypeBangla: 'image' | 'video' | undefined = undefined;
-
-            if (file && storage) {
-                const storageRef = ref(storage, `posts/${user.uid}/${Date.now()}_${file.name}`);
-                await uploadBytes(storageRef, file);
-                mediaURL = await getDownloadURL(storageRef);
-                mediaType = file.type.startsWith('image/') ? 'image' : 'video';
-            }
-
-            if (fileBangla && storage) {
-                const storageRef = ref(storage, `posts/${user.uid}/${Date.now()}_${fileBangla.name}_bn`);
-                await uploadBytes(storageRef, fileBangla);
-                mediaURLBangla = await getDownloadURL(storageRef);
-                mediaTypeBangla = fileBangla.type.startsWith('image/') ? 'image' : 'video';
-            }
-
             const newPostData: Omit<Post, 'id' | 'sharedPost'> = {
                 authorId: user.uid,
                 authorName: user.name,

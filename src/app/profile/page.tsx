@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { collection, query, where, orderBy, onSnapshot, doc, runTransaction, arrayUnion, arrayRemove, setDoc, updateDoc, getDoc, deleteDoc, Timestamp, getDocs, increment } from 'firebase/firestore';
-import { ref, deleteObject } from "firebase/storage";
+import { ref, deleteObject, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useAuth } from '@/contexts/auth-context';
 import type { User, Post } from '@/lib/types';
 import { db, storage } from '@/lib/firebase';

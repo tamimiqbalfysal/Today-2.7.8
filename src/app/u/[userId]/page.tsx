@@ -13,7 +13,7 @@ import { ProfileCard } from '@/components/fintrack/overview';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PostFeed } from '@/components/fintrack/recent-transactions';
 import { deleteDoc } from 'firebase/firestore';
-import { ref, deleteObject } from "firebase/storage";
+import { ref, deleteObject, uploadBytes, getDownloadURL } from "firebase/storage";
 
 
 function UserProfileSkeleton() {
