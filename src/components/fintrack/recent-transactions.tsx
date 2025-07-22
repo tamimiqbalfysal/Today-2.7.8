@@ -188,8 +188,30 @@ function PostCard({ post: initialPost, currentUser, onDelete, onMakePostPrivate,
     const currentUserInitial = currentUser?.name ? currentUser.name.charAt(0) : "U";
 
     const handleReactionClick = (reaction: 'like' | 'laugh') => {
-        if (!currentUser || !onReact) return;
-        onReact(post.id, post.authorId, reaction);
+        if (!currentUser) return;
+
+        setPost(currentPost => {
+            const newPost = { ...currentPost };
+            const userId = currentUser.uid;
+
+            if (reaction === 'like') {
+                const currentLikes = newPost.likes || [];
+                if (currentLikes.includes(userId)) {
+                    // User has already liked, so we do nothing as per requirement to only increment
+                } else {
+                    newPost.likes = [...currentLikes, userId];
+                }
+            } else if (reaction === 'laugh') {
+                const currentLaughs = newPost.laughs || [];
+                const hasLaughed = currentLaughs.includes(userId);
+                if (hasLaughed) {
+                    newPost.laughs = currentLaughs.filter(id => id !== userId);
+                } else {
+                    newPost.laughs = [...currentLaughs, userId];
+                }
+            }
+            return newPost;
+        });
     };
     
     const handleCommentClick = () => {
