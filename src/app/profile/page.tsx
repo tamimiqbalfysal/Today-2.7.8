@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { collection, query, where, orderBy, onSnapshot, doc, runTransaction, arrayUnion, arrayRemove, setDoc, updateDoc, getDoc, deleteDoc, Timestamp, getDocs, increment } from 'firebase/firestore';
 import { ref, deleteObject } from "firebase/storage";
 import { useAuth } from '@/contexts/auth-context';
@@ -13,6 +13,8 @@ import { ProfileCard } from '@/components/fintrack/overview';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PostFeed } from '@/components/fintrack/recent-transactions';
 import { addDoc } from 'firebase/firestore';
+import { Input } from '@/components/ui/input';
+import { Search } from 'lucide-react';
 
 function ProfileSkeleton() {
     return (
@@ -35,6 +37,7 @@ export default function ProfilePage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
   const { toast } = useToast();
+  const [searchTerm, setSearchTerm] = useState('');
   
   useEffect(() => {
     if (!user || !db) {
@@ -91,6 +94,13 @@ export default function ProfilePage() {
     };
   }, [user, toast]);
   
+  const filteredPosts = useMemo(() => {
+    return posts.filter(post => 
+      (post.content && post.content.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (post.authorName && post.authorName.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  }, [posts, searchTerm]);
+
   if (authLoading || (isDataLoading && user)) {
     return <ProfileSkeleton />;
   }
@@ -207,10 +217,23 @@ export default function ProfilePage() {
              <div className="w-full max-w-sm mx-auto">
                 <ProfileCard user={user!} isOwnProfile={true} />
              </div>
+             
+             <div className="mt-8 mb-4 max-w-lg mx-auto">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                        type="search"
+                        placeholder="Search your posts..."
+                        className="w-full pl-10"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+            </div>
 
             <div className="mt-8 space-y-6">
                 <PostFeed
-                    posts={posts}
+                    posts={filteredPosts}
                     currentUser={user}
                     onReact={handleReaction}
                     onCommentPost={handleCommentPost}
