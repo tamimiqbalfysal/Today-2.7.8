@@ -11,28 +11,11 @@ import { cn } from '@/lib/utils';
 type Software = 'dice' | 'whiteboard';
 
 export default function BittPage() {
-  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
-  const lastScrollY = useRef(0);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [activeSoftware, setActiveSoftware] = useState<Software | null>(null);
-
-  const handleScroll = () => {
-    if (scrollContainerRef.current) {
-      const currentScrollY = scrollContainerRef.current.scrollTop;
-      if (currentScrollY > lastScrollY.current && currentScrollY > 50) {
-        setIsHeaderVisible(false);
-      } else {
-        setIsHeaderVisible(true);
-      }
-      lastScrollY.current = currentScrollY;
-    }
-  };
 
   return (
       <div className="flex flex-col h-screen bg-secondary">
         <main 
-          ref={scrollContainerRef}
-          onScroll={handleScroll}
           className="flex-1 flex flex-col items-center justify-center p-4 overflow-y-auto"
         >
           <div className="w-full max-w-4xl flex flex-col items-center gap-8">

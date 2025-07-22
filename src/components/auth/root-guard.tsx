@@ -24,7 +24,7 @@ const DYNAMIC_PROTECTED_ROUTES_PREFIX = [
   '/admin/',
 ];
 
-export function RootGuard({ children }: { children: React.ReactNode }) {
+export function RootGuard({ children, isHeaderVisible }: { children: React.ReactNode, isHeaderVisible?: boolean }) {
   const { user } = useAuth();
   const pathname = usePathname();
 
@@ -38,7 +38,7 @@ export function RootGuard({ children }: { children: React.ReactNode }) {
   if (isProtectedRoute) {
     return (
       <AuthGuard>
-        {showHeader && <Header />}
+        {showHeader && <Header isVisible={isHeaderVisible} />}
         {children}
         <FloatingCounterButton />
         <FloatingCartButton />
@@ -49,7 +49,7 @@ export function RootGuard({ children }: { children: React.ReactNode }) {
   // Public routes (like '/', '/attom', '/bitt', etc.)
   return (
     <>
-      {showHeader && <Header />}
+      {showHeader && <Header isVisible={isHeaderVisible} />}
       {children}
       {user && <FloatingCounterButton />}
       {showCart && <FloatingCartButton />}

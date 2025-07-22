@@ -35,22 +35,7 @@ export default function AddPage() {
   const [newAppName, setNewAppName] = useState('');
   const [newAppHref, setNewAppHref] = useState('');
 
-  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
-  const lastScrollY = useRef(0);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showMoreApps, setShowMoreApps] = useState(false);
-
-  const handleScroll = () => {
-    if (scrollContainerRef.current) {
-      const currentScrollY = scrollContainerRef.current.scrollTop;
-      if (currentScrollY > lastScrollY.current && currentScrollY > 50) {
-        setIsHeaderVisible(false);
-      } else {
-        setIsHeaderVisible(true);
-      }
-      lastScrollY.current = currentScrollY;
-    }
-  };
 
   const filteredApps = apps.filter(app =>
     app.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -84,8 +69,6 @@ export default function AddPage() {
   return (
       <div className="flex flex-col h-screen">
         <main 
-          ref={scrollContainerRef}
-          onScroll={handleScroll}
           className="flex-1 overflow-y-auto"
         >
           <div className="container mx-auto max-w-2xl p-4 flex flex-col items-center justify-center">

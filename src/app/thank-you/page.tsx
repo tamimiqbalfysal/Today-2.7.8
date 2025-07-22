@@ -67,22 +67,6 @@ export default function ThankYouPage() {
   const [isCelebrating, setIsCelebrating] = useState(false);
   const { width, height } = useWindowSize();
 
-  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
-  const lastScrollY = useRef(0);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  const handleScroll = () => {
-    if (scrollContainerRef.current) {
-      const currentScrollY = scrollContainerRef.current.scrollTop;
-      if (currentScrollY > lastScrollY.current && currentScrollY > 50) {
-        setIsHeaderVisible(false);
-      } else {
-        setIsHeaderVisible(true);
-      }
-      lastScrollY.current = currentScrollY;
-    }
-  };
-
   const fetchTotalCodes = async () => {
       if (!db) {
           setIsTotalCodesLoading(false);
@@ -258,8 +242,6 @@ export default function ThankYouPage() {
       )}
       <div className="theme-navy flex flex-col h-screen">
         <main 
-          ref={scrollContainerRef}
-          onScroll={handleScroll}
           className="flex-1 overflow-y-auto"
         >
           <div className="container mx-auto max-w-2xl p-4 flex-1 flex flex-col items-center justify-center">
@@ -388,5 +370,3 @@ export default function ThankYouPage() {
     </>
   );
 }
-
-    

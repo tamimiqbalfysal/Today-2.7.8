@@ -32,9 +32,6 @@ export default function TodayPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
   const { toast } = useToast();
-  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
-  const lastScrollY = useRef(0);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isThinkCodeDialogOpen, setIsThinkCodeDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -49,19 +46,6 @@ export default function TodayPage() {
       return () => clearTimeout(timeoutId);
     }
   }, [user, authLoading]);
-
-  const handleScroll = () => {
-    if (scrollContainerRef.current) {
-      const currentScrollY = scrollContainerRef.current.scrollTop;
-      
-      if (currentScrollY > lastScrollY.current && currentScrollY > 50) {
-        setIsHeaderVisible(false);
-      } else {
-        setIsHeaderVisible(true);
-      }
-      lastScrollY.current = currentScrollY;
-    }
-  };
   
 
   useEffect(() => {
@@ -530,8 +514,6 @@ export default function TodayPage() {
   return (
         <div className="flex flex-col h-screen">
           <main 
-            ref={scrollContainerRef}
-            onScroll={handleScroll}
             className="flex-1 overflow-y-auto scroll-snap-y-mandatory"
           >
             <div className="container mx-auto max-w-2xl">

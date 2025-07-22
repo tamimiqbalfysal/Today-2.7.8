@@ -82,9 +82,6 @@ function ProductCard({ product }: { product: Product }) {
 }
 
 export default function AttomPage() {
-  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
-  const lastScrollY = useRef(0);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<string[]>(['Tribe', 'Gift Garden']);
@@ -120,18 +117,6 @@ export default function AttomPage() {
     return () => unsubscribe();
   }, [toast]);
 
-  const handleScroll = () => {
-    if (scrollContainerRef.current) {
-      const currentScrollY = scrollContainerRef.current.scrollTop;
-      if (currentScrollY > lastScrollY.current && currentScrollY > 50) {
-        setIsHeaderVisible(false);
-      } else {
-        setIsHeaderVisible(true);
-      }
-      lastScrollY.current = currentScrollY;
-    }
-  };
-
   const filteredProducts = useMemo(() => {
     let productsToShow = products;
     
@@ -161,8 +146,6 @@ export default function AttomPage() {
   return (
       <div className="flex flex-col h-screen bg-background">
         <main
-          ref={scrollContainerRef}
-          onScroll={handleScroll}
           className="flex-1 overflow-y-auto"
         >
           <div className="container mx-auto px-4 py-8">
