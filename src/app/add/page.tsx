@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useRef } from 'react';
@@ -18,14 +19,11 @@ const apps: DrawerApp[] = [
   { id: 'findit', name: 'Findit', logo: '/findit-logo.png', href: '#' },
   { id: 'mingle', name: 'Mingle', logo: '/mingle-logo.png', href: '#' },
   { id: 'thankug', name: 'Thanku G', logo: '/thankug-logo.png', href: '/thank-you' },
-  { id: 'attom', name: 'Attom', logo: 'https://placehold.co/48x48/9ca3af/FFFFFF?text=A', href: '/attom' },
   { id: 'bitt', name: 'Bitt', logo: 'https://placehold.co/48x48/fde047/000000?text=B', href: '/bitt' },
+  { id: 'attom', name: 'Attom', logo: 'https://placehold.co/48x48/9ca3af/FFFFFF?text=A', href: '/attom' },
 ];
 
 const moreApps: DrawerApp[] = [
-  { id: 'app1', name: 'App One', logo: 'https://placehold.co/48x48/ff0000/FFFFFF?text=A1', href: '#' },
-  { id: 'app2', name: 'App Two', logo: 'https://placehold.co/48x48/00ff00/FFFFFF?text=A2', href: '#' },
-  { id: 'app3', name: 'App Three', logo: 'https://placehold.co/48x48/0000ff/FFFFFF?text=A3', href: '#' },
 ];
 
 export default function AddPage() {
@@ -159,27 +157,44 @@ export default function AddPage() {
                       <p>No applications found.</p>
                     </div>
                   )}
-                  <div className="text-center mt-4">
-                    <Button variant="ghost" onClick={() => setShowMoreApps(!showMoreApps)}>
-                      {showMoreApps ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                  {showMoreApps && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-                      {moreApps.map((app) => {
-                        const isAdded = isAppInDrawer(app.id);
-                        return (
-                          <div key={app.id} className="flex flex-col items-center justify-between p-4 h-full border rounded-lg space-y-4">
-                            <div className="flex flex-col items-center space-y-2 text-center">
-                              <Image src={app.logo} alt={`${app.name} logo`} width={48} height={48} />
-                              <p className="mt-2 font-semibold text-lg">{app.name}</p>
-                            </div>
-                             {/* Add button/link functionality similar to the apps above if needed */}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                  {moreApps.length > 0 &&
+                    <>
+                      <div className="text-center mt-4">
+                        <Button variant="ghost" onClick={() => setShowMoreApps(!showMoreApps)}>
+                          {showMoreApps ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                      {showMoreApps && (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                          {moreApps.map((app) => {
+                            const isAdded = isAppInDrawer(app.id);
+                            return (
+                              <div key={app.id} className="flex flex-col items-center justify-between p-4 h-full border rounded-lg space-y-4">
+                                <div className="flex flex-col items-center space-y-2 text-center">
+                                  <Image src={app.logo} alt={`${app.name} logo`} width={48} height={48} />
+                                  <p className="mt-2 font-semibold text-lg">{app.name}</p>
+                                </div>
+                                <div className="w-full mt-auto space-y-2">
+                                  <Button asChild className="w-full" variant="outline">
+                                    <Link href={app.href}>Global</Link>
+                                  </Button>
+                                  <Button
+                                    onClick={() => addAppToDrawer(app)}
+                                    disabled={isAdded}
+                                    className="w-full"
+                                    variant={isAdded ? 'secondary' : 'default'}
+                                  >
+                                    {isAdded ? <CheckCircle className="mr-2" /> : null}
+                                    {isAdded ? 'Added' : 'Add'}
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
+                  }
                 </CardContent>
               </Card>
             </div>
