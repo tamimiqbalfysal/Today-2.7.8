@@ -174,6 +174,11 @@ export default function ProfilePage() {
     if (!user || !db) return;
     try {
       await runTransaction(db, async (transaction) => {
+        // READ FIRST
+        const sharedPostRef = doc(db, 'posts', sharedPostId);
+        const sharedPostDoc = await transaction.get(sharedPostRef);
+        
+        // NOW PREPARE WRITES
         const newPostData = {
           authorId: user.uid,
           authorName: user.name,
@@ -188,12 +193,10 @@ export default function ProfilePage() {
           sharedPostId,
           localColor,
         };
-
+        
         const postCollectionRef = collection(db, 'posts');
         transaction.set(doc(postCollectionRef), newPostData);
         
-        const sharedPostRef = doc(db, 'posts', sharedPostId);
-        const sharedPostDoc = await transaction.get(sharedPostRef);
         if (sharedPostDoc.exists()) {
             const originalAuthorId = sharedPostDoc.data().authorId;
             if (originalAuthorId && originalAuthorId !== user.uid) {
