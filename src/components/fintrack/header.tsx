@@ -145,9 +145,6 @@ export function Header({ isVisible = true }: HeaderProps) {
 
               {/* Right: Another Drawer */}
               <div className="justify-self-end flex items-center gap-2">
-                <Button size="icon" variant="ghost" className="rounded-full">
-                    <Search />
-                </Button>
                 <Sheet open={isProfileDrawerOpen} onOpenChange={setIsProfileDrawerOpen}>
                   <SheetTrigger asChild>
                       <Button size="icon" variant="ghost" className="rounded-full">
