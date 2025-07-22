@@ -1,4 +1,5 @@
 
+
 import type { Timestamp } from "firebase/firestore";
 
 export interface User {
@@ -50,7 +51,8 @@ export interface Post {
   isPrivate?: boolean;
   offenceCredit?: number;
   localColor?: string;
-  availableCountries?: string[];
+  availableCountry?: string; // Single country code
+  currency?: string; // Currency code
 }
 
 export interface Review {

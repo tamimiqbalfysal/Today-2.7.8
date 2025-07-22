@@ -241,6 +241,7 @@ export default function TribePage() {
     }
   };
 
+  const uniqueCurrencies = Array.from(new Set(countries.map(c => c.currency))).sort();
 
   return (
       <div className="flex flex-col min-h-screen bg-background">
@@ -281,7 +282,18 @@ export default function TribePage() {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="currency">Currency</Label>
-                        <Input id="currency" value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} placeholder="e.g., USD" maxLength={3} disabled={isSubmitting} />
+                        <Select onValueChange={setCurrency} value={currency} disabled={isSubmitting}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a currency" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {uniqueCurrencies.map((currencyCode) => (
+                              <SelectItem key={currencyCode} value={currencyCode}>
+                                {currencyCode}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
 
