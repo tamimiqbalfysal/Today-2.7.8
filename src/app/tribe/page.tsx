@@ -15,7 +15,7 @@ import { collection, addDoc, serverTimestamp, query, where, onSnapshot, orderBy,
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import type { Post as Product } from '@/lib/types';
 import Image from 'next/image';
-import { Upload, Star, ShoppingCart, Trash2, Info, X, PlayCircle } from 'lucide-react';
+import { Upload, Star, ShoppingCart, Trash2, Info, X } from 'lucide-react';
 import Link from 'next/link';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
@@ -71,23 +71,12 @@ function ProductCard({ product, onDelete, currentUserId }: { product: Product, o
       <CardContent className="p-0 flex flex-col flex-grow">
         {displayMedia && (
             <div className="relative aspect-square bg-black">
-                {displayMedia.type === 'image' ? (
-                    <Image
-                        src={displayMedia.url}
-                        alt={product.authorName}
-                        fill
-                        className="object-cover"
-                    />
-                ) : (
-                    <video
-                        src={displayMedia.url}
-                        className="w-full h-full object-cover"
-                        loop
-                        muted
-                        autoPlay
-                        playsInline
-                    />
-                )}
+                <Image
+                    src={displayMedia.url}
+                    alt={product.authorName}
+                    fill
+                    className="object-cover"
+                />
             </div>
         )}
         <div className="p-4 space-y-2 flex flex-col flex-grow">
@@ -130,8 +119,8 @@ export default function TribePage() {
   const [productName, setProductName] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
-  const [mediaFiles, setMediaFiles] = useState<{file: File, type: 'image' | 'video'}[]>([]);
-  const [mediaPreviews, setMediaPreviews] = useState<{url: string, type: 'image' | 'video'}[]>([]);
+  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [mediaPreviews, setMediaPreviews] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -164,16 +153,8 @@ export default function TribePage() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const files = Array.from(event.target.files);
-      const newFilesWithType = files.map(file => ({
-        file,
-        type: file.type.startsWith('video') ? 'video' : 'image' as 'image' | 'video'
-      }));
-      setMediaFiles(prev => [...prev, ...newFilesWithType]);
-
-      const newPreviews = files.map(file => ({
-        url: URL.createObjectURL(file),
-        type: file.type.startsWith('video') ? 'video' : 'image' as 'image' | 'video'
-      }));
+      setMediaFiles(prev => [...prev, ...files]);
+      const newPreviews = files.map(file => URL.createObjectURL(file));
       setMediaPreviews(prev => [...prev, ...newPreviews]);
     }
   };
@@ -207,7 +188,7 @@ export default function TribePage() {
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!productName || !description || !price || mediaFiles.length === 0 || !user) {
-      toast({ variant: 'destructive', title: 'Missing Fields', description: 'Please fill out all fields and select at least one media file.' });
+      toast({ variant: 'destructive', title: 'Missing Fields', description: 'Please fill out all fields and select at least one image.' });
       return;
     }
 
@@ -216,11 +197,11 @@ export default function TribePage() {
       if (!storage || !db) throw new Error("Firebase not configured");
       
       const mediaData = await Promise.all(
-        mediaFiles.map(async ({ file, type }) => {
+        mediaFiles.map(async (file) => {
           const storageRef = ref(storage, `products/${user.uid}/${Date.now()}_${file.name}`);
           await uploadBytes(storageRef, file);
           const url = await getDownloadURL(storageRef);
-          return { url, type };
+          return { url, type: 'image' };
         })
       );
 
@@ -294,21 +275,17 @@ export default function TribePage() {
                       <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="e.g., 19.99" min="0.01" step="0.01" disabled={isSubmitting} />
                     </div>
                     <div className="space-y-2">
-                      <Label>Product Media</Label>
-                      <Input id="file-upload" type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,video/*" className="hidden" disabled={isSubmitting} multiple/>
+                      <Label>Product Images</Label>
+                      <Input id="file-upload" type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" disabled={isSubmitting} multiple/>
                       <Button type="button" variant="outline" className="w-full" onClick={() => fileInputRef.current?.click()} disabled={isSubmitting}>
                         <Upload className="mr-2 h-4 w-4" />
-                        {mediaFiles.length > 0 ? `Add More Media (${mediaFiles.length})` : 'Upload Images/Videos'}
+                        {mediaFiles.length > 0 ? `Add More Images (${mediaFiles.length})` : 'Upload Images'}
                       </Button>
                       {mediaPreviews.length > 0 && (
                         <div className="mt-4 grid grid-cols-3 gap-2">
-                          {mediaPreviews.map((media, index) => (
+                          {mediaPreviews.map((preview, index) => (
                             <div key={index} className="relative w-full aspect-square rounded-md border overflow-hidden">
-                              {media.type === 'image' ? (
-                                <Image src={media.url} alt="Media preview" layout="fill" objectFit="cover" />
-                              ) : (
-                                <video src={media.url} className="w-full h-full object-cover" loop muted autoPlay playsInline />
-                              )}
+                                <Image src={preview} alt="Media preview" layout="fill" objectFit="cover" />
                               <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 rounded-full" onClick={() => handleRemoveMedia(index)}>
                                 <X className="h-4 w-4" />
                               </Button>
