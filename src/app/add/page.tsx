@@ -21,6 +21,7 @@ const apps: DrawerApp[] = [
   { id: 'findit', name: 'Findit', logo: '/findit-logo.png', href: '/findit' },
   { id: 'office-express', name: 'Office Express', logo: 'https://placehold.co/48x48/4caf50/ffffff?text=O', href: '/office-express' },
   { id: 'chhutir-dine', name: 'Chhutir Dine', logo: 'https://placehold.co/48x48/ff9800/FFFFFF?text=C', href: '/chhutir-dine' },
+  { id: 'translate2', name: 'Translate2', logo: 'https://placehold.co/48x48/fde047/000000?text=T', href: '/translate2' },
   { id: 'mingle', name: 'Mingle', logo: '/mingle-logo.png', href: '#' },
 ];
 
