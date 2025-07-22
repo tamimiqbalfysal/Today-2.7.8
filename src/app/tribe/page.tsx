@@ -18,6 +18,7 @@ import Image from 'next/image';
 import { Upload, Star, ShoppingCart, Trash2, Info, X, PlayCircle } from 'lucide-react';
 import Link from 'next/link';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { cn } from '@/lib/utils';
 
 
 function ProductCard({ product, onDelete, currentUserId }: { product: Product, onDelete: (productId: string, media?: {url: string, type: string}[]) => void, currentUserId?: string }) {
@@ -35,6 +36,9 @@ function ProductCard({ product, onDelete, currentUserId }: { product: Product, o
   
   const isOwner = product.authorId === currentUserId;
   const displayMedia = (product.media && product.media[0]);
+  
+  const averageRating = product.averageRating || 0;
+  const reviewCount = product.reviewCount || 0;
 
   return (
     <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex flex-col">
@@ -94,11 +98,11 @@ function ProductCard({ product, onDelete, currentUserId }: { product: Product, o
               {[...Array(5)].map((_, i) => (
                 <Star
                   key={i}
-                  className="h-5 w-5 text-muted-foreground"
+                  className={cn("h-5 w-5", i < averageRating ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground")}
                 />
               ))}
             </div>
-            <span className="text-sm text-muted-foreground">(0 Review)</span>
+            <span className="text-sm text-muted-foreground">({reviewCount} Review{reviewCount !== 1 ? 's' : ''})</span>
           </div>
           <p className="text-2xl font-bold">${price}</p>
         </div>

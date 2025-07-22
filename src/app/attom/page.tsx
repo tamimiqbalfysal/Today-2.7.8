@@ -38,6 +38,9 @@ function ProductCard({ product }: { product: Product }) {
   }, [product.content]);
 
   const displayMedia = (product.media && product.media[0]) || { url: product.mediaURL, type: 'image' };
+  
+  const averageRating = product.averageRating || 0;
+  const reviewCount = product.reviewCount || 0;
 
   return (
     <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
@@ -71,11 +74,11 @@ function ProductCard({ product }: { product: Product }) {
               {[...Array(5)].map((_, i) => (
                 <Star
                   key={i}
-                  className="h-5 w-5 text-muted-foreground"
+                  className={cn("h-5 w-5", i < averageRating ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground")}
                 />
               ))}
             </div>
-            <span className="text-sm text-muted-foreground">(0 Review)</span>
+            <span className="text-sm text-muted-foreground">({reviewCount} Review{reviewCount !== 1 ? 's' : ''})</span>
           </div>
           <p className="text-2xl font-bold">${price}</p>
         </div>
@@ -184,7 +187,7 @@ export default function AttomPage() {
                 <Link href="/secondsell">Secondsell</Link>
               </Button>
               <Button asChild variant="outline">
-                <Link href="/marco-polo">Marco Polo</Link>
+                <Link href="/video-bazaar">Video Bazaar</Link>
               </Button>
               <Button asChild variant="outline">
                 <Link href="/printit">Printit</Link>
