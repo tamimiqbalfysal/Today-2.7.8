@@ -28,6 +28,7 @@ const apps: DrawerApp[] = [
 
 const moreApps: DrawerApp[] = [
     { id: 'attom', name: 'Attom', logo: 'https://placehold.co/48x48/9ca3af/FFFFFF?text=A', href: '/attom' },
+    { id: 'gamezone', name: 'Gamezone', logo: 'https://placehold.co/48x48/4caf50/FFFFFF?text=G', href: '/gamezone' },
 ];
 
 export default function AddPage() {
