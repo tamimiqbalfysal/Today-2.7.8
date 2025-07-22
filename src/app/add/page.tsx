@@ -20,10 +20,10 @@ const apps: DrawerApp[] = [
   { id: 'mingle', name: 'Mingle', logo: '/mingle-logo.png', href: '#' },
   { id: 'thankug', name: 'Thanku G', logo: '/thankug-logo.png', href: '/thank-you' },
   { id: 'bitt', name: 'Bitt', logo: 'https://placehold.co/48x48/fde047/000000?text=B', href: '/bitt' },
+  { id: 'attom', name: 'Attom', logo: 'https://placehold.co/48x48/9ca3af/FFFFFF?text=A', href: '/attom' },
 ];
 
 const moreApps: DrawerApp[] = [
-  { id: 'attom', name: 'Attom', logo: 'https://placehold.co/48x48/9ca3af/FFFFFF?text=A', href: '/attom' },
 ];
 
 export default function AddPage() {
@@ -136,7 +136,7 @@ export default function AddPage() {
                             </div>
                             <div className="w-full mt-auto space-y-2">
                               <Button asChild className="w-full" variant="outline">
-                                <Link href={app.href}>Global</Link>
+                                <Link href={app.href}>Local</Link>
                               </Button>
                               <Button
                                 onClick={() => addAppToDrawer(app)}
@@ -161,7 +161,8 @@ export default function AddPage() {
                     <>
                       <div className="text-center mt-4">
                         <Button variant="ghost" onClick={() => setShowMoreApps(!showMoreApps)}>
-                          {showMoreApps ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          {showMoreApps ? "Show Less" : "Show More"}
+                          {showMoreApps ? <ChevronUp className="h-4 w-4 ml-2" /> : <ChevronDown className="h-4 w-4 ml-2" />}
                         </Button>
                       </div>
                       {showMoreApps && (
@@ -176,7 +177,7 @@ export default function AddPage() {
                                 </div>
                                 <div className="w-full mt-auto space-y-2">
                                   <Button asChild className="w-full" variant="outline">
-                                    <Link href={app.href}>Global</Link>
+                                    <Link href={app.href}>Local</Link>
                                   </Button>
                                   <Button
                                     onClick={() => addAppToDrawer(app)}
