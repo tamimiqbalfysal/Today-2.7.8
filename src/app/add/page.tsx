@@ -18,7 +18,8 @@ const apps: DrawerApp[] = [
   { id: 'thankug', name: 'Thanku G', logo: '/thankug-logo.png', href: '/thank-you' },
   { id: 'bitt', name: 'Bitt', logo: 'https://placehold.co/48x48/fde047/000000?text=B', href: '/bitt' },
   { id: 'think', name: 'Think', logo: '/think-logo.png', href: '/think' },
-  { id: 'findit', name: 'Findit', logo: '/findit-logo.png', href: '#' },
+  { id: 'findit', name: 'Findit', logo: '/findit-logo.png', href: '/findit' },
+  { id: 'office-express', name: 'Office Express', logo: 'https://placehold.co/48x48/4caf50/ffffff?text=O', href: '/office-express' },
   { id: 'mingle', name: 'Mingle', logo: '/mingle-logo.png', href: '#' },
 ];
 
