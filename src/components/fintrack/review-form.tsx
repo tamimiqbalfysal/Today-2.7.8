@@ -16,6 +16,7 @@ import { Textarea } from '../ui/textarea';
 import { Input } from '../ui/input';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { useCart } from '@/contexts/cart-context';
 
 interface ReviewFormProps {
   productId: string;
@@ -26,6 +27,7 @@ export function ReviewForm({ productId, onReviewSubmitted }: ReviewFormProps) {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const { addReviewedProduct } = useCart();
 
   const [rating, setRating] = useState(0);
   const [reviewComment, setReviewComment] = useState('');
@@ -113,6 +115,7 @@ export function ReviewForm({ productId, onReviewSubmitted }: ReviewFormProps) {
         });
         
         toast({ title: "Review Submitted!", description: "Thank you for your feedback." });
+        addReviewedProduct(productId);
         
         if (onReviewSubmitted) {
             onReviewSubmitted(newReview);
@@ -166,7 +169,7 @@ export function ReviewForm({ productId, onReviewSubmitted }: ReviewFormProps) {
           />
 
           <div className="space-y-2">
-            <Input id="review-file-upload" type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" multiple disabled={isSubmittingReview}/>
+            <Input id={`review-file-upload-${productId}`} type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" multiple disabled={isSubmittingReview}/>
             <Button type="button" variant="outline" className="w-full" onClick={() => fileInputRef.current?.click()} disabled={isSubmittingReview}>
               <Upload className="mr-2 h-4 w-4" />
               Upload Photos

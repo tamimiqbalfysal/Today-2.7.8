@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -12,10 +12,11 @@ import { useCart } from '@/contexts/cart-context';
 import { X, ShoppingCart, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { CartItem } from '@/contexts/cart-context';
+import type { Post as Product } from '@/lib/types';
 import { ReviewForm } from '@/components/fintrack/review-form';
 
 export default function CheckoutPage() {
-  const { cartItems, removeFromCart, updateQuantity, clearCart, cartTotal, cartCount, addPurchasedProducts } = useCart();
+  const { cartItems, removeFromCart, updateQuantity, clearCart, cartTotal, cartCount, addPurchasedProducts, purchasedProducts, reviewedProductIds } = useCart();
   const { toast } = useToast();
   const router = useRouter();
   const [isOrderComplete, setIsOrderComplete] = useState(false);
@@ -28,8 +29,7 @@ export default function CheckoutPage() {
     });
     
     // Add items to purchased list
-    const purchasedIds = cartItems.map(item => item.product.id);
-    addPurchasedProducts(purchasedIds);
+    addPurchasedProducts(cartItems);
     setPurchasedItems([...cartItems]);
     
     // Clear the cart
@@ -44,7 +44,7 @@ export default function CheckoutPage() {
     return priceMatch ? parseFloat(priceMatch[1]) : 0;
   };
 
-  const getDisplayMedia = (product: CartItem['product']) => {
+  const getDisplayMedia = (product: Product) => {
     if (product.media && product.media.length > 0) {
       return product.media.find(m => m.type === 'image') || product.media[0];
     }
@@ -53,6 +53,10 @@ export default function CheckoutPage() {
     }
     return null;
   };
+  
+  const pendingReviews = useMemo(() => {
+    return purchasedProducts.filter(p => !reviewedProductIds.includes(p.id) && !purchasedItems.some(item => item.product.id === p.id));
+  }, [purchasedProducts, reviewedProductIds, purchasedItems]);
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -69,45 +73,85 @@ export default function CheckoutPage() {
 
           {isOrderComplete ? (
             <div className="space-y-8">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Your Items</CardTitle>
-                </CardHeader>
-                <CardContent className="divide-y">
-                  {purchasedItems.map(item => {
-                    const displayMedia = getDisplayMedia(item.product);
-                    return (
-                        <div key={item.product.id} className="py-6 space-y-4">
-                        <div className="flex items-center gap-4">
-                           {displayMedia && displayMedia.type === 'image' ? (
-                                <Image
-                                src={displayMedia.url}
-                                alt={item.product.authorName}
-                                width={80}
-                                height={80}
-                                className="rounded-md object-cover aspect-square"
-                                />
-                            ) : (
-                                <div className="w-[80px] h-[80px] bg-secondary rounded-md flex items-center justify-center">
-                                    <ImageIcon className="w-8 h-8 text-muted-foreground" />
-                                </div>
-                            )}
-                            <div className="flex-1 space-y-1">
-                            <p className="font-semibold">{item.product.authorName}</p>
-                            <p className="text-sm text-muted-foreground">${getPrice(item.product.content).toFixed(2)}</p>
-                            </div>
-                        </div>
-                        <ReviewForm productId={item.product.id} />
-                        </div>
-                    );
-                  })}
-                </CardContent>
-                <CardFooter>
-                  <Button asChild variant="outline" className="w-full">
-                      <Link href="/attom">Continue Shopping</Link>
-                  </Button>
+              {purchasedItems.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Review Your New Items</CardTitle>
+                  </CardHeader>
+                  <CardContent className="divide-y">
+                    {purchasedItems.map(item => {
+                      const displayMedia = getDisplayMedia(item.product);
+                      return (
+                          <div key={item.product.id} className="py-6 space-y-4">
+                          <div className="flex items-center gap-4">
+                            {displayMedia && displayMedia.type === 'image' ? (
+                                  <Image
+                                  src={displayMedia.url}
+                                  alt={item.product.authorName}
+                                  width={80}
+                                  height={80}
+                                  className="rounded-md object-cover aspect-square"
+                                  />
+                              ) : (
+                                  <div className="w-[80px] h-[80px] bg-secondary rounded-md flex items-center justify-center">
+                                      <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                                  </div>
+                              )}
+                              <div className="flex-1 space-y-1">
+                              <p className="font-semibold">{item.product.authorName}</p>
+                              <p className="text-sm text-muted-foreground">${getPrice(item.product.content).toFixed(2)}</p>
+                              </div>
+                          </div>
+                          <ReviewForm productId={item.product.id} />
+                          </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              )}
+              {pendingReviews.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Review Your Past Purchases</CardTitle>
+                  </CardHeader>
+                  <CardContent className="divide-y">
+                    {pendingReviews.map(product => {
+                      const displayMedia = getDisplayMedia(product);
+                      return (
+                          <div key={product.id} className="py-6 space-y-4">
+                          <div className="flex items-center gap-4">
+                            {displayMedia && displayMedia.type === 'image' ? (
+                                  <Image
+                                  src={displayMedia.url}
+                                  alt={product.authorName}
+                                  width={80}
+                                  height={80}
+                                  className="rounded-md object-cover aspect-square"
+                                  />
+                              ) : (
+                                  <div className="w-[80px] h-[80px] bg-secondary rounded-md flex items-center justify-center">
+                                      <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                                  </div>
+                              )}
+                              <div className="flex-1 space-y-1">
+                              <p className="font-semibold">{product.authorName}</p>
+                              <p className="text-sm text-muted-foreground">${getPrice(product.content).toFixed(2)}</p>
+                              </div>
+                          </div>
+                          <ReviewForm productId={product.id} />
+                          </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              )}
+               <Card>
+                <CardFooter className="pt-6">
+                    <Button asChild variant="outline" className="w-full">
+                        <Link href="/attom">Continue Shopping</Link>
+                    </Button>
                 </CardFooter>
-              </Card>
+               </Card>
             </div>
           ) : cartCount > 0 ? (
             <div className="grid md:grid-cols-3 gap-8">

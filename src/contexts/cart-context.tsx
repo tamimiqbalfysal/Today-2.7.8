@@ -20,8 +20,10 @@ interface CartContextType {
   cartTotal: number;
   lastViewedProductId: string | null;
   setLastViewedProductId: (productId: string | null) => void;
-  purchasedProductIds: string[];
-  addPurchasedProducts: (productIds: string[]) => void;
+  purchasedProducts: Product[];
+  addPurchasedProducts: (newlyPurchasedItems: CartItem[]) => void;
+  reviewedProductIds: string[];
+  addReviewedProduct: (productId: string) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -30,16 +32,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const { toast } = useToast();
   const [lastViewedProductId, setLastViewedProductId] = useState<string | null>(null);
-  const [purchasedProductIds, setPurchasedProductIds] = useState<string[]>([]);
+  const [purchasedProducts, setPurchasedProducts] = useState<Product[]>([]);
+  const [reviewedProductIds, setReviewedProductIds] = useState<string[]>([]);
   
    useEffect(() => {
     try {
-        const storedPurchased = window.localStorage.getItem('purchasedProductIds');
+        const storedPurchased = window.localStorage.getItem('purchasedProducts');
+        const storedReviewed = window.localStorage.getItem('reviewedProductIds');
         if (storedPurchased) {
-          setPurchasedProductIds(JSON.parse(storedPurchased));
+          setPurchasedProducts(JSON.parse(storedPurchased));
+        }
+        if (storedReviewed) {
+          setReviewedProductIds(JSON.parse(storedReviewed));
         }
     } catch (error) {
-        console.error("Failed to parse purchasedProductIds from localStorage", error);
+        console.error("Failed to parse from localStorage", error);
     }
   }, []);
 
@@ -82,17 +89,33 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setCartItems([]);
   }, []);
   
-  const addPurchasedProducts = useCallback((productIds: string[]) => {
-    setPurchasedProductIds(prevIds => {
-        const newIds = Array.from(new Set([...prevIds, ...productIds]));
+  const addPurchasedProducts = useCallback((newlyPurchasedItems: CartItem[]) => {
+    setPurchasedProducts(prevProducts => {
+        const newProducts = newlyPurchasedItems.map(item => item.product);
+        const allProducts = [...prevProducts, ...newProducts];
+        // Remove duplicates by id
+        const uniqueProducts = Array.from(new Map(allProducts.map(p => [p.id, p])).values());
         try {
-            window.localStorage.setItem('purchasedProductIds', JSON.stringify(newIds));
+            window.localStorage.setItem('purchasedProducts', JSON.stringify(uniqueProducts));
         } catch (error) {
-            console.error("Failed to save purchasedProductIds to localStorage", error);
+            console.error("Failed to save purchasedProducts to localStorage", error);
+        }
+        return uniqueProducts;
+    });
+  }, []);
+
+  const addReviewedProduct = useCallback((productId: string) => {
+    setReviewedProductIds(prevIds => {
+        const newIds = Array.from(new Set([...prevIds, productId]));
+         try {
+            window.localStorage.setItem('reviewedProductIds', JSON.stringify(newIds));
+        } catch (error) {
+            console.error("Failed to save reviewedProductIds to localStorage", error);
         }
         return newIds;
     });
   }, []);
+
 
   const cartCount = useMemo(() => {
     return cartItems.reduce((total, item) => total + item.quantity, 0);
@@ -117,8 +140,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     cartTotal,
     lastViewedProductId,
     setLastViewedProductId,
-    purchasedProductIds,
+    purchasedProducts,
     addPurchasedProducts,
+    reviewedProductIds,
+    addReviewedProduct,
   };
 
   return (

@@ -102,3 +102,4 @@ export interface ThinkCourse {
   date: Timestamp;
   meetLink: string;
 }
+
