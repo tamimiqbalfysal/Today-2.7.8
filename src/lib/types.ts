@@ -1,5 +1,4 @@
 
-
 import type { Timestamp } from "firebase/firestore";
 
 export interface User {
@@ -61,6 +60,7 @@ export interface Review {
   rating: number;
   comment: string;
   timestamp: Timestamp;
+  media?: { url: string; type: 'image' }[];
 }
 
 

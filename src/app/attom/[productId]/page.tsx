@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -435,6 +434,15 @@ export default function ProductDetailPage() {
                                             ))}
                                         </div>
                                         <p className="text-sm text-muted-foreground">{review.comment}</p>
+                                        {review.media && review.media.length > 0 && (
+                                          <div className="mt-2 grid grid-cols-3 gap-2">
+                                            {review.media.map((media, index) => (
+                                              <div key={index} className="relative aspect-square">
+                                                <Image src={media.url} alt={`Review image ${index + 1}`} layout="fill" objectFit="cover" className="rounded-md" />
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
                                     </div>
                                 </div>
                            )
