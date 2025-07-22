@@ -15,15 +15,15 @@ import { useToast } from '@/hooks/use-toast';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
 const apps: DrawerApp[] = [
-  { id: 'thankug', name: 'Thanku G', logo: '/thankug-logo.png', href: '/thank-you' },
   { id: 'bitt', name: 'Bitt', logo: 'https://placehold.co/48x48/fde047/000000?text=B', href: '/bitt' },
-  { id: 'think', name: 'Think', logo: '/think-logo.png', href: '/think' },
-  { id: 'findit', name: 'Findit', logo: '/findit-logo.png', href: '/findit' },
-  { id: 'office-express', name: 'Office Express', logo: 'https://placehold.co/48x48/4caf50/ffffff?text=O', href: '/office-express' },
   { id: 'chhutir-dine', name: 'Chhutir Dine', logo: 'https://placehold.co/48x48/ff9800/FFFFFF?text=C', href: '/chhutir-dine' },
-  { id: 'translate2', name: 'Translate2', logo: 'https://placehold.co/48x48/fde047/000000?text=T', href: '/translate2' },
-  { id: 'roktim', name: 'Roktim', logo: 'https://placehold.co/48x48/e53935/ffffff?text=R', href: '/roktim' },
+  { id: 'findit', name: 'Findit', logo: '/findit-logo.png', href: '/findit' },
   { id: 'mingle', name: 'Mingle', logo: '/mingle-logo.png', href: '#' },
+  { id: 'office-express', name: 'Office Express', logo: 'https://placehold.co/48x48/4caf50/ffffff?text=O', href: '/office-express' },
+  { id: 'roktim', name: 'Roktim', logo: 'https://placehold.co/48x48/e53935/ffffff?text=R', href: '/roktim' },
+  { id: 'thankug', name: 'Thanku G', logo: '/thankug-logo.png', href: '/thank-you' },
+  { id: 'think', name: 'Think', logo: '/think-logo.png', href: '/think' },
+  { id: 'translate2', name: 'Translate2', logo: 'https://placehold.co/48x48/fde047/000000?text=T', href: '/translate2' },
 ];
 
 const moreApps: DrawerApp[] = [
