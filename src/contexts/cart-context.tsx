@@ -21,6 +21,7 @@ interface CartContextType {
   lastViewedProductId: string | null;
   setLastViewedProductId: (productId: string | null) => void;
   purchasedProducts: Product[];
+  purchasedProductIds: string[];
   addPurchasedProducts: (newlyPurchasedItems: CartItem[]) => void;
   reviewedProductIds: string[];
   addReviewedProduct: (productId: string) => void;
@@ -33,14 +34,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const [lastViewedProductId, setLastViewedProductId] = useState<string | null>(null);
   const [purchasedProducts, setPurchasedProducts] = useState<Product[]>([]);
+  const [purchasedProductIds, setPurchasedProductIds] = useState<string[]>([]);
   const [reviewedProductIds, setReviewedProductIds] = useState<string[]>([]);
   
    useEffect(() => {
     try {
         const storedPurchased = window.localStorage.getItem('purchasedProducts');
+        const storedPurchasedIds = window.localStorage.getItem('purchasedProductIds');
         const storedReviewed = window.localStorage.getItem('reviewedProductIds');
         if (storedPurchased) {
           setPurchasedProducts(JSON.parse(storedPurchased));
+        }
+        if (storedPurchasedIds) {
+          setPurchasedProductIds(JSON.parse(storedPurchasedIds));
         }
         if (storedReviewed) {
           setReviewedProductIds(JSON.parse(storedReviewed));
@@ -90,10 +96,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
   
   const addPurchasedProducts = useCallback((newlyPurchasedItems: CartItem[]) => {
+    const newProducts = newlyPurchasedItems.map(item => item.product);
+    const newProductIds = newlyPurchasedItems.map(item => item.product.id);
+
     setPurchasedProducts(prevProducts => {
-        const newProducts = newlyPurchasedItems.map(item => item.product);
         const allProducts = [...prevProducts, ...newProducts];
-        // Remove duplicates by id
         const uniqueProducts = Array.from(new Map(allProducts.map(p => [p.id, p])).values());
         try {
             window.localStorage.setItem('purchasedProducts', JSON.stringify(uniqueProducts));
@@ -101,6 +108,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
             console.error("Failed to save purchasedProducts to localStorage", error);
         }
         return uniqueProducts;
+    });
+
+    setPurchasedProductIds(prevIds => {
+        const newIds = Array.from(new Set([...prevIds, ...newProductIds]));
+        try {
+            window.localStorage.setItem('purchasedProductIds', JSON.stringify(newIds));
+        } catch (error) {
+            console.error("Failed to save purchasedProductIds to localStorage", error);
+        }
+        return newIds;
     });
   }, []);
 
@@ -141,6 +158,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     lastViewedProductId,
     setLastViewedProductId,
     purchasedProducts,
+    purchasedProductIds,
     addPurchasedProducts,
     reviewedProductIds,
     addReviewedProduct,
