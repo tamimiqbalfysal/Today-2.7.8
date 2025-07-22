@@ -19,6 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useCart } from '@/contexts/cart-context';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/auth-context';
+import { countries } from '@/lib/countries';
 
 function ProductCard({ product }: { product: Product }) {
   const { toast } = useToast();
@@ -42,6 +43,15 @@ function ProductCard({ product }: { product: Product }) {
   
   const averageRating = product.averageRating || 0;
   const reviewCount = product.reviewCount || 0;
+
+  const currencySymbol = useMemo(() => {
+    if (!product.currency) return '$';
+    try {
+      return (0).toLocaleString('en-US', { style: 'currency', currency: product.currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).replace(/\d/g, '').trim();
+    } catch {
+      return '$';
+    }
+  }, [product.currency]);
 
   return (
     <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
@@ -81,7 +91,7 @@ function ProductCard({ product }: { product: Product }) {
             </div>
             <span className="text-sm text-muted-foreground">({reviewCount} Review{reviewCount !== 1 ? 's' : ''})</span>
           </div>
-          <p className="text-2xl font-bold">${price}</p>
+          <p className="text-2xl font-bold">{currencySymbol}{price}</p>
         </div>
       </CardContent>
       <div className="p-4 pt-0">
@@ -104,7 +114,7 @@ export default function AttomPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilters, setActiveFilters] = useState<string[]>(['Tribe', 'Gift Garden']);
+  const [activeFilters, setActiveFilters] = useState<string[]>(['Tribe', 'Gift Garden', 'Video Bazaar']);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
@@ -119,7 +129,7 @@ export default function AttomPage() {
         id: doc.id,
         ...doc.data()
       } as Product))
-      .filter(p => ['Tribe', 'Gift Garden'].includes(p.category || ''))
+      .filter(p => ['Tribe', 'Gift Garden', 'Video Bazaar'].includes(p.category || ''))
       .sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
       
       setProducts(fetchedProducts);
@@ -149,13 +159,15 @@ export default function AttomPage() {
     
     // Filter by country if a user is logged in and has a country
     if (user?.country) {
+      const userCountryCode = countries.find(c => c.name === user.country)?.code;
       productsToShow = productsToShow.filter(p => {
+        if(p.category !== 'Tribe') return true;
         // If a product has no country restrictions, it's available to everyone
-        if (!p.availableCountries || p.availableCountries.length === 0) {
+        if (!p.availableCountry) {
           return true;
         }
         // Otherwise, check if the user's country is in the list of available countries
-        return p.availableCountries.includes(user.country);
+        return p.availableCountry === userCountryCode;
       });
     }
 
@@ -250,6 +262,12 @@ export default function AttomPage() {
                             onCheckedChange={() => handleFilterChange('Gift Garden')}
                         >
                             Gift Garden
+                        </DropdownMenuCheckboxItem>
+                        <DropdownMenuCheckboxItem
+                            checked={activeFilters.includes('Video Bazaar')}
+                            onCheckedChange={() => handleFilterChange('Video Bazaar')}
+                        >
+                            Video Bazaar
                         </DropdownMenuCheckboxItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
