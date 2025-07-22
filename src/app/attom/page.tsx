@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useRef, useMemo, useEffect } from 'react';
@@ -36,17 +37,21 @@ function ProductCard({ product }: { product: Product }) {
     return priceMatch ? parseFloat(priceMatch[1]).toFixed(2) : '0.00';
   }, [product.content]);
 
+  const displayImage = (product.mediaURLs && product.mediaURLs[0]) || product.mediaURL;
+
   return (
     <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
       <CardContent className="p-0">
         <div className="relative">
-          <Image
-            src={product.mediaURL!}
-            alt={product.authorName}
-            width={600}
-            height={600}
-            className="w-full h-auto aspect-square object-cover"
-          />
+          {displayImage && (
+            <Image
+              src={displayImage}
+              alt={product.authorName}
+              width={600}
+              height={600}
+              className="w-full h-auto aspect-square object-cover"
+            />
+          )}
         </div>
         <div className="p-4 space-y-2">
           <p className="text-sm text-muted-foreground">{product.category}</p>
