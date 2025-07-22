@@ -287,8 +287,8 @@ export default function TribePage() {
                             <SelectValue placeholder="Select a currency" />
                           </SelectTrigger>
                           <SelectContent>
-                            {uniqueCurrencies.map((currencyCode, index) => (
-                              <SelectItem key={`${currencyCode}-${index}`} value={currencyCode}>
+                            {uniqueCurrencies.map((currencyCode) => (
+                              <SelectItem key={currencyCode} value={currencyCode}>
                                 {currencyCode}
                               </SelectItem>
                             ))}
@@ -323,7 +323,7 @@ export default function TribePage() {
                       {mediaPreviews.length > 0 && (
                         <div className="mt-4 grid grid-cols-3 gap-2">
                           {mediaPreviews.map((preview, index) => (
-                            <div key={preview} className="relative w-full aspect-square rounded-md border overflow-hidden">
+                            <div key={`${preview}-${index}`} className="relative w-full aspect-square rounded-md border overflow-hidden">
                                 <Image src={preview} alt="Media preview" layout="fill" objectFit="cover" />
                               <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 rounded-full" onClick={() => handleRemoveMedia(index)}>
                                 <X className="h-4 w-4" />
@@ -366,7 +366,3 @@ export default function TribePage() {
       </div>
   );
 }
-
-
-
-    
