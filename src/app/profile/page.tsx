@@ -96,67 +96,42 @@ export default function ProfilePage() {
   }
 
   const handleReaction = async (postId: string, authorId: string, reaction: 'like' | 'laugh') => {
-      if (!user || !db) return;
-      const postRef = doc(db, 'posts', postId);
-      const reactorId = user.uid;
+    if (!user || !db) return;
+    const postRef = doc(db, 'posts', postId);
+    const reactorId = user.uid;
 
-      try {
-          await runTransaction(db, async (transaction) => {
-              const postDoc = await transaction.get(postRef);
-              if (!postDoc.exists()) {
-                  throw "Post does not exist!";
-              }
+    try {
+        await runTransaction(db, async (transaction) => {
+            const postDoc = await transaction.get(postRef);
+            if (!postDoc.exists()) {
+                throw "Post does not exist!";
+            }
 
-              const postData = postDoc.data();
-              const reactionField = reaction === 'like' ? 'likes' : 'laughs';
-              const otherReactionField = reaction === 'like' ? 'laughs' : 'likes';
+            const postData = postDoc.data();
+            const reactionField = reaction === 'like' ? 'likes' : 'laughs';
+            const otherReactionField = reaction === 'like' ? 'laughs' : 'likes';
+            const currentReactors = postData[reactionField] || [];
+            const otherReactors = postData[otherReactionField] || [];
+            const isAlreadyReacted = currentReactors.includes(reactorId);
 
-              const currentReactors: string[] = postData[reactionField] || [];
-              const otherReactors: string[] = postData[otherReactionField] || [];
-
-              const isReacting = !currentReactors.includes(reactorId);
-              
-              const updateData: { [key: string]: any } = {};
-
-              if (isReacting) {
-                  updateData[reactionField] = arrayUnion(reactorId);
-                  // if reacting to one, remove reaction from other
-                  if (otherReactors.includes(reactorId)) {
-                      updateData[otherReactionField] = arrayRemove(reactorId);
-                  }
-              } else {
-                  updateData[reactionField] = arrayRemove(reactorId);
-              }
-              
-              transaction.update(postRef, updateData);
-
-              if (authorId !== reactorId) {
-                const authorRef = doc(db, 'users', authorId);
-                const reactorRef = doc(db, 'users', reactorId);
-
-                if (isReacting) {
-                    transaction.update(authorRef, { followers: arrayUnion(reactorId) });
-                    transaction.update(reactorRef, { following: arrayUnion(authorId) });
-
-                    const notificationRef = doc(collection(db, `users/${authorId}/notifications`));
-                    transaction.set(notificationRef, {
-                        type: 'like',
-                        senderId: reactorId,
-                        senderName: user.name,
-                        senderPhotoURL: user.photoURL || '',
-                        postId: postId,
-                        timestamp: Timestamp.now(),
-                        read: false,
-                    });
-                    
-                    transaction.update(authorRef, { unreadNotifications: true });
+            if (isAlreadyReacted) {
+                transaction.update(postRef, {
+                    [reactionField]: arrayRemove(reactorId)
+                });
+            } else {
+                const updates: { [key: string]: any } = {
+                    [reactionField]: arrayUnion(reactorId)
+                };
+                if (otherReactors.includes(reactorId)) {
+                    updates[otherReactionField] = arrayRemove(reactorId);
                 }
-              }
-          });
-      } catch (error) {
-          console.error("Error reacting to post:", error);
-          toast({ variant: "destructive", title: "Error", description: "Could not update reaction." });
-      }
+                transaction.update(postRef, updates);
+            }
+        });
+    } catch (error) {
+        console.error("Error reacting to post:", error);
+        toast({ variant: "destructive", title: "Error", description: "Could not update reaction." });
+    }
   };
   
   const handleCommentPost = async (postId: string, commentText: string) => {

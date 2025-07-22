@@ -181,36 +181,23 @@ export default function UserProfilePage() {
               
               const postData = postDoc.data();
               const reactionField = reaction === 'like' ? 'likes' : 'laughs';
-              const currentReactors: string[] = postData[reactionField] || [];
-              const isReacting = !currentReactors.includes(reactorId);
+              const otherReactionField = reaction === 'like' ? 'laughs' : 'likes';
+              const currentReactors = postData[reactionField] || [];
+              const otherReactors = postData[otherReactionField] || [];
+              const isAlreadyReacted = currentReactors.includes(reactorId);
 
-              const authorRef = doc(db, 'users', authorId);
-              const reactorRef = doc(db, 'users', reactorId);
-              
-              const updateData: { [key: string]: any } = {};
-              if (isReacting) {
-                  updateData[reactionField] = arrayUnion(reactorId);
-                  transaction.update(postRef, updateData);
-                  transaction.update(authorRef, { followers: arrayUnion(reactorId) });
-                  transaction.update(reactorRef, { following: arrayUnion(authorId) });
-                  
-                  if (authorId !== reactorId) {
-                      const notificationRef = doc(collection(db, `users/${authorId}/notifications`));
-                      transaction.set(notificationRef, {
-                          type: 'like',
-                          senderId: reactorId,
-                          senderName: currentUser.name,
-                          senderPhotoURL: currentUser.photoURL || '',
-                          postId: postId,
-                          timestamp: Timestamp.now(),
-                          read: false,
-                      });
-                      transaction.update(authorRef, { unreadNotifications: true });
-                  }
+              if (isAlreadyReacted) {
+                  transaction.update(postRef, {
+                      [reactionField]: arrayRemove(reactorId)
+                  });
               } else {
-                  updateData[reactionField] = arrayRemove(reactorId);
-                  transaction.update(postRef, updateData);
-                   // Note: We don't automatically unfollow on un-reacting. This is a design choice.
+                  const updates: { [key: string]: any } = {
+                      [reactionField]: arrayUnion(reactorId)
+                  };
+                  if (otherReactors.includes(reactorId)) {
+                      updates[otherReactionField] = arrayRemove(reactorId);
+                  }
+                  transaction.update(postRef, updates);
               }
           });
       } catch (error) {

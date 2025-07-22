@@ -116,67 +116,33 @@ export default function TodayPage() {
 
                 const postData = postDoc.data();
                 const reactionField = reaction === 'like' ? 'likes' : 'laughs';
-                const currentReactors: string[] = postData[reactionField] || [];
-                const isReacting = !currentReactors.includes(reactorId);
-                
-                const authorRef = doc(db, 'users', authorId);
-                const reactorRef = doc(db, 'users', reactorId);
-                const authorDoc = await transaction.get(authorRef);
-                const reactorDoc = await transaction.get(reactorRef);
+                const otherReactionField = reaction === 'like' ? 'laughs' : 'likes';
+                const currentReactors = postData[reactionField] || [];
+                const otherReactors = postData[otherReactionField] || [];
+                const isAlreadyReacted = currentReactors.includes(reactorId);
 
-                if (!authorDoc.exists() || !reactorDoc.exists()) {
-                    throw "User does not exist!";
-                }
-                
-                const updateData: { [key: string]: any } = {};
-
-                if (isReacting) {
-                    updateData[reactionField] = arrayUnion(reactorId);
-                    if (reaction === 'like') {
-                       updateData.defenceCredit = increment(1);
-                    }
-                    transaction.update(postRef, updateData);
-                    transaction.update(authorRef, { followers: arrayUnion(reactorId) });
-                    transaction.update(reactorRef, { following: arrayUnion(authorId) });
-
-                    if (authorId !== reactorId) {
-                        const notificationRef = doc(collection(db, `users/${authorId}/notifications`));
-                        transaction.set(notificationRef, {
-                            type: 'like',
-                            senderId: reactorId,
-                            senderName: user.name,
-                            senderPhotoURL: user.photoURL || '',
-                            postId: postId,
-                            timestamp: Timestamp.now(),
-                            read: false,
-                        });
-                        
-                        transaction.update(authorRef, { unreadNotifications: true });
-                    }
+                if (isAlreadyReacted) {
+                    // User is un-reacting
+                    transaction.update(postRef, {
+                        [reactionField]: arrayRemove(reactorId)
+                    });
                 } else {
-                    updateData[reactionField] = arrayRemove(reactorId);
-                    if (reaction === 'like') {
-                       updateData.defenceCredit = increment(-1);
+                    // User is adding a new reaction
+                    const updates: { [key: string]: any } = {
+                        [reactionField]: arrayUnion(reactorId)
+                    };
+                    // If user reacted to the other type, remove it
+                    if (otherReactors.includes(reactorId)) {
+                        updates[otherReactionField] = arrayRemove(reactorId);
                     }
-                    transaction.update(postRef, updateData);
-                    transaction.update(authorRef, { followers: arrayRemove(reactorId) });
-                    transaction.update(reactorRef, { following: arrayRemove(authorId) });
-
-                     if (authorId !== reactorId) {
-                        const notificationsCollection = collection(db, `users/${authorId}/notifications`);
-                        const q = query(notificationsCollection, where("postId", "==", postId), where("senderId", "==", reactorId), where("type", "==", "like"));
-                        const querySnapshot = await getDocs(q);
-                        querySnapshot.forEach((doc) => {
-                            transaction.delete(doc.ref);
-                        });
-                    }
+                    transaction.update(postRef, updates);
                 }
             });
         } catch (error: any) {
             console.error("Error reacting to post:", error);
             let description = "Could not update reaction.";
             if (error.code === 'permission-denied' || error.code === 'PERMISSION_DENIED') {
-                description = "Permission Denied. Please check your Firestore security rules to allow 'update' on the 'posts' collection and 'write' on the 'users' collection for notifications.";
+                description = "Permission Denied. Please check your Firestore security rules to allow 'update' on the 'posts' collection.";
             }
             toast({
                 variant: "destructive",
