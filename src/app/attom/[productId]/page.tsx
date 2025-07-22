@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { doc, getDoc, updateDoc, collection, query, orderBy, onSnapshot, writeBatch, Timestamp, increment, runTransaction, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, orderBy, onSnapshot, writeBatch, Timestamp, increment, runTransaction, getDocs, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { db, storage } from '@/lib/firebase';
 import type { Post as Product, Review } from '@/lib/types';
@@ -19,12 +19,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Star, Zap, ArrowLeft, Edit, Upload, Save } from 'lucide-react';
+import { Star, Zap, ArrowLeft, Edit, Upload, Save, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ReviewForm } from '@/components/fintrack/review-form';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 
 function ProductPageSkeleton() {
   return (
@@ -67,8 +68,8 @@ export default function ProductDetailPage() {
   const [editedName, setEditedName] = useState('');
   const [editedDescription, setEditedDescription] = useState('');
   const [editedPrice, setEditedPrice] = useState('');
-  const [newImageFile, setNewImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -79,47 +80,49 @@ export default function ProductDetailPage() {
   useEffect(() => {
     if (!productId || !db) return;
 
+    let unsubscribeProduct: () => void = () => {};
     let unsubscribeReviews: () => void = () => {};
 
     const fetchProductAndReviews = async () => {
       setIsLoading(true);
       try {
         const productRef = doc(db, 'posts', productId);
-        const productSnap = await getDoc(productRef);
-        
-        if (productSnap.exists()) {
-          const productData = { id: productSnap.id, ...productSnap.data() } as Product;
-          setProduct(productData);
+        unsubscribeProduct = onSnapshot(productRef, (productSnap) => {
+            if (productSnap.exists()) {
+              const productData = { id: productSnap.id, ...productSnap.data() } as Product;
+              setProduct(productData);
 
-          const priceMatch = productData.content.match(/(\d+(\.\d+)?)$/);
-          const price = priceMatch ? parseFloat(priceMatch[1]).toFixed(0) : '0';
-          const description = priceMatch ? productData.content.substring(0, priceMatch.index).trim() : productData.content;
-          
-          setEditedName(productData.authorName);
-          setEditedDescription(description);
-          setEditedPrice(price);
-          
-          const reviewsRef = collection(db, 'posts', productId, 'reviews');
-          const q = query(reviewsRef, orderBy('timestamp', 'desc'));
-          unsubscribeReviews = onSnapshot(q, (snapshot) => {
-              const fetchedReviews = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Review));
-              setReviews(fetchedReviews);
-          }, (error) => {
-              console.error("Error fetching reviews:", error);
-              if (error.code === 'permission-denied') {
-                  toast({
-                      variant: 'destructive',
-                      title: 'Permission Error',
-                      description: 'Could not load reviews. Your security rules must allow reads on the reviews subcollection.',
-                      duration: 10000,
-                  });
-              }
-          });
-          
-        } else {
-          toast({ variant: 'destructive', title: 'Product not found.' });
-          setProduct(null);
-        }
+              const priceMatch = productData.content.match(/(\d+(\.\d+)?)$/);
+              const price = priceMatch ? parseFloat(priceMatch[1]).toFixed(0) : '0';
+              const description = priceMatch ? productData.content.substring(0, priceMatch.index).trim() : productData.content;
+              
+              setEditedName(productData.authorName);
+              setEditedDescription(description);
+              setEditedPrice(price);
+              setImagePreviews(productData.mediaURLs || (productData.mediaURL ? [productData.mediaURL] : []));
+              
+              const reviewsRef = collection(db, 'posts', productId, 'reviews');
+              const q = query(reviewsRef, orderBy('timestamp', 'desc'));
+              unsubscribeReviews = onSnapshot(q, (snapshot) => {
+                  const fetchedReviews = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Review));
+                  setReviews(fetchedReviews);
+              }, (error) => {
+                  console.error("Error fetching reviews:", error);
+                  if (error.code === 'permission-denied') {
+                      toast({
+                          variant: 'destructive',
+                          title: 'Permission Error',
+                          description: 'Could not load reviews. Your security rules must allow reads on the reviews subcollection.',
+                          duration: 10000,
+                      });
+                  }
+              });
+              
+            } else {
+              toast({ variant: 'destructive', title: 'Product not found.' });
+              setProduct(null);
+            }
+        });
       } catch (error) {
         console.error("Error fetching product:", error);
         toast({ variant: 'destructive', title: 'Error', description: 'Could not load product details.' });
@@ -131,6 +134,7 @@ export default function ProductDetailPage() {
     fetchProductAndReviews();
     
     return () => {
+        unsubscribeProduct();
         unsubscribeReviews();
     };
   }, [productId, toast]);
@@ -165,53 +169,76 @@ export default function ProductDetailPage() {
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setNewImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (event.target.files) {
+      const files = Array.from(event.target.files);
+      setNewImageFiles(prev => [...prev, ...files]);
+      
+      const newPreviews = files.map(file => URL.createObjectURL(file));
+      setImagePreviews(prev => [...prev, ...newPreviews]);
     }
   };
+  
+  const handleRemoveNewImage = (index: number) => {
+    const newFiles = [...newImageFiles];
+    newFiles.splice(index, 1);
+    setNewImageFiles(newFiles);
+    
+    // We also need to remove it from the preview
+    const newPreviews = [...imagePreviews];
+    // Find the correct index in the combined preview array to remove
+    const originalImageCount = product?.mediaURLs?.length || (product?.mediaURL ? 1 : 0);
+    newPreviews.splice(originalImageCount + index, 1);
+    setImagePreviews(newPreviews);
+  };
+  
+  const handleRemoveExistingImage = async (imageUrl: string) => {
+      if (!product || !currentUser || !db || !storage) return;
+      setIsSaving(true);
+      try {
+        const productRef = doc(db, 'posts', product.id);
+        
+        await updateDoc(productRef, {
+          mediaURLs: arrayRemove(imageUrl)
+        });
+
+        const imageRef = ref(storage, imageUrl);
+        await deleteObject(imageRef);
+
+        toast({ title: "Image Removed", description: "The image has been deleted." });
+      } catch (error) {
+        console.error("Error removing image:", error);
+        toast({ variant: "destructive", title: "Error", description: "Could not remove image." });
+      } finally {
+        setIsSaving(false);
+      }
+  };
+
 
   const handleSaveChanges = async () => {
     if (!product || !currentUser || !db || !storage) return;
     setIsSaving(true);
     try {
-        let newMediaURL = product.mediaURL;
-        if (newImageFile) {
-            if (product.mediaURL) {
-              try {
-                const oldImageRef = ref(storage, product.mediaURL);
-                await deleteObject(oldImageRef);
-              } catch (error: any) {
-                if (error.code !== 'storage/object-not-found') {
-                  console.warn("Could not delete old image, it might not exist.", error);
-                }
-              }
-            }
-            const newImageRef = ref(storage, `products/${currentUser.uid}/${Date.now()}_${newImageFile.name}`);
-            await uploadBytes(newImageRef, newImageFile);
-            newMediaURL = await getDownloadURL(newImageRef);
-        }
-
+        const uploadedURLs = await Promise.all(
+          newImageFiles.map(async (file) => {
+            const newImageRef = ref(storage, `products/${currentUser.uid}/${Date.now()}_${file.name}`);
+            await uploadBytes(newImageRef, file);
+            return await getDownloadURL(newImageRef);
+          })
+        );
+        
         const productRef = doc(db, 'posts', product.id);
         const updatedContent = `${editedDescription}\n${parseInt(editedPrice) || 0}`;
 
         await updateDoc(productRef, {
             authorName: editedName,
             content: updatedContent,
-            mediaURL: newMediaURL,
+            mediaURLs: arrayUnion(...uploadedURLs),
         });
 
         toast({ title: "Success", description: "Product updated successfully." });
         
-        setProduct(prev => prev ? { ...prev, authorName: editedName, content: updatedContent, mediaURL: newMediaURL } : null);
         setIsEditing(false);
-        setNewImageFile(null);
-        setImagePreview(null);
+        setNewImageFiles([]);
     } catch (error) {
         console.error("Error saving changes:", error);
         toast({ variant: "destructive", title: "Error", description: "Could not save changes." });
@@ -243,6 +270,8 @@ export default function ProductDetailPage() {
   
   const averageRating = product.averageRating || 0;
   const reviewCount = product.reviewCount || 0;
+  
+  const mediaToDisplay = isEditing ? imagePreviews : (product.mediaURLs || (product.mediaURL ? [product.mediaURL] : []));
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -261,24 +290,57 @@ export default function ProductDetailPage() {
           <div className="grid md:grid-cols-2 gap-12 items-start">
             <Card className="overflow-hidden">
                 <CardContent className="p-0">
-                  <div className="relative">
-                    <Image
-                        src={imagePreview || product.mediaURL!}
-                        alt={name}
-                        width={800}
-                        height={800}
-                        className="w-full h-auto aspect-square object-cover"
-                    />
-                    {isEditing && (
-                      <>
-                        <Input id="file-upload" type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
-                        <Button type="button" variant="outline" className="absolute bottom-4 left-1/2 -translate-x-1/2" onClick={() => fileInputRef.current?.click()}>
-                          <Upload className="mr-2 h-4 w-4" />
-                          Change Image
-                        </Button>
-                      </>
-                    )}
-                  </div>
+                  <Carousel className="w-full">
+                      <CarouselContent>
+                          {mediaToDisplay.map((url, index) => (
+                              <CarouselItem key={index}>
+                                  <div className="relative aspect-square">
+                                      <Image
+                                          src={url}
+                                          alt={`${name} - Image ${index + 1}`}
+                                          fill
+                                          className="object-cover"
+                                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                      />
+                                      {isEditing && (
+                                        <Button
+                                            variant="destructive"
+                                            size="icon"
+                                            className="absolute top-2 right-2 h-8 w-8 z-10"
+                                            onClick={() => {
+                                                const originalCount = product?.mediaURLs?.length || 0;
+                                                if (index < originalCount) {
+                                                    handleRemoveExistingImage(url);
+                                                } else {
+                                                    handleRemoveNewImage(index - originalCount);
+                                                }
+                                            }}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      )}
+                                  </div>
+                              </CarouselItem>
+                          ))}
+                          {isEditing && (
+                            <CarouselItem>
+                                <div className="flex items-center justify-center aspect-square border-2 border-dashed rounded-lg">
+                                    <Input id="file-upload" type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" multiple />
+                                    <Button type="button" variant="outline" size="lg" className="flex-col h-auto p-8" onClick={() => fileInputRef.current?.click()}>
+                                    <Upload className="h-8 w-8 mb-2" />
+                                    Add Images
+                                    </Button>
+                                </div>
+                            </CarouselItem>
+                          )}
+                      </CarouselContent>
+                      {mediaToDisplay.length > 1 && (
+                        <>
+                            <CarouselPrevious className="left-4" />
+                            <CarouselNext className="right-4" />
+                        </>
+                      )}
+                  </Carousel>
                 </CardContent>
             </Card>
             <div className="space-y-6">

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -14,12 +15,12 @@ import { collection, addDoc, serverTimestamp, query, where, onSnapshot, orderBy,
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import type { Post as Product } from '@/lib/types';
 import Image from 'next/image';
-import { Upload, Star, ShoppingCart, Trash2, Info } from 'lucide-react';
+import { Upload, Star, ShoppingCart, Trash2, Info, X } from 'lucide-react';
 import Link from 'next/link';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 
-function ProductCard({ product, onDelete, currentUserId }: { product: Product, onDelete: (productId: string, mediaUrl?: string) => void, currentUserId?: string }) {
+function ProductCard({ product, onDelete, currentUserId }: { product: Product, onDelete: (productId: string, mediaUrls?: string[]) => void, currentUserId?: string }) {
   const { toast } = useToast();
   const handleAddToCart = (productName: string) => {
     toast({
@@ -33,6 +34,7 @@ function ProductCard({ product, onDelete, currentUserId }: { product: Product, o
   const description = priceMatch ? product.content.substring(0, priceMatch.index).trim() : product.content;
   
   const isOwner = product.authorId === currentUserId;
+  const displayImage = (product.mediaURLs && product.mediaURLs[0]) || product.mediaURL;
 
   return (
     <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex flex-col">
@@ -54,7 +56,7 @@ function ProductCard({ product, onDelete, currentUserId }: { product: Product, o
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => onDelete(product.id, product.mediaURL)} className="bg-destructive hover:bg-destructive/90">
+                        <AlertDialogAction onClick={() => onDelete(product.id, product.mediaURLs)} className="bg-destructive hover:bg-destructive/90">
                             Delete
                         </AlertDialogAction>
                     </AlertDialogFooter>
@@ -63,15 +65,17 @@ function ProductCard({ product, onDelete, currentUserId }: { product: Product, o
          )}
       </CardHeader>
       <CardContent className="p-0 flex flex-col flex-grow">
-        <div className="relative">
-          <Image
-            src={product.mediaURL!}
-            alt={product.authorName}
-            width={600}
-            height={600}
-            className="w-full h-auto aspect-square object-cover"
-          />
-        </div>
+        {displayImage && (
+            <div className="relative">
+            <Image
+                src={displayImage}
+                alt={product.authorName}
+                width={600}
+                height={600}
+                className="w-full h-auto aspect-square object-cover"
+            />
+            </div>
+        )}
         <div className="p-4 space-y-2 flex flex-col flex-grow">
           <p className="text-sm text-muted-foreground">{description}</p>
           <div className="flex-grow" />
@@ -112,8 +116,8 @@ export default function TribePage() {
   const [productName, setProductName] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -151,18 +155,21 @@ export default function TribePage() {
 
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (event.target.files) {
+      const files = Array.from(event.target.files);
+      setImageFiles(prev => [...prev, ...files]);
+      const newPreviews = files.map(file => URL.createObjectURL(file));
+      setImagePreviews(prev => [...prev, ...newPreviews]);
     }
   };
+  
+  const handleRemoveImage = (index: number) => {
+    setImageFiles(prev => prev.filter((_, i) => i !== index));
+    setImagePreviews(prev => prev.filter((_, i) => i !== index));
+  };
 
-  const handleDeleteProduct = async (productId: string, mediaUrl?: string) => {
+
+  const handleDeleteProduct = async (productId: string, mediaUrls?: string[]) => {
     if (!db || !storage || !user) {
         toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to delete products.' });
         return;
@@ -176,11 +183,13 @@ export default function TribePage() {
 
     try {
         await deleteDoc(doc(db, 'posts', productId));
-        if (mediaUrl) {
-            const storageRef = ref(storage, mediaUrl);
-            await deleteObject(storageRef).catch(err => {
-                if (err.code !== 'storage/object-not-found') throw err;
-            });
+        if (mediaUrls && mediaUrls.length > 0) {
+            await Promise.all(mediaUrls.map(url => {
+                const storageRef = ref(storage, url);
+                return deleteObject(storageRef).catch(err => {
+                    if (err.code !== 'storage/object-not-found') throw err;
+                });
+            }));
         }
         toast({ title: 'Success', description: 'Product deleted successfully.' });
     } catch (error: any) {
@@ -195,8 +204,8 @@ export default function TribePage() {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!productName || !description || !price || !imageFile || !user) {
-      toast({ variant: 'destructive', title: 'Missing Fields', description: 'Please fill out all fields and select an image.' });
+    if (!productName || !description || !price || imageFiles.length === 0 || !user) {
+      toast({ variant: 'destructive', title: 'Missing Fields', description: 'Please fill out all fields and select at least one image.' });
       return;
     }
 
@@ -204,9 +213,13 @@ export default function TribePage() {
     try {
       if (!storage || !db) throw new Error("Firebase not configured");
       
-      const storageRef = ref(storage, `products/${user.uid}/${Date.now()}_${imageFile.name}`);
-      await uploadBytes(storageRef, imageFile);
-      const imageUrl = await getDownloadURL(storageRef);
+      const imageUrls = await Promise.all(
+        imageFiles.map(async file => {
+          const storageRef = ref(storage, `products/${user.uid}/${Date.now()}_${file.name}`);
+          await uploadBytes(storageRef, file);
+          return await getDownloadURL(storageRef);
+        })
+      );
 
       const postsCollectionRef = collection(db, `posts`);
       await addDoc(postsCollectionRef, {
@@ -216,8 +229,9 @@ export default function TribePage() {
         content: `${description}\n${parseFloat(price)}`,
         timestamp: Timestamp.now(),
         likes: [],
+        laughs: [],
         comments: [],
-        mediaURL: imageUrl,
+        mediaURLs: imageUrls,
         mediaType: 'image',
         type: 'original',
         category: 'Tribe',
@@ -228,8 +242,8 @@ export default function TribePage() {
       setProductName('');
       setDescription('');
       setPrice('');
-      setImageFile(null);
-      setImagePreview(null);
+      setImageFiles([]);
+      setImagePreviews([]);
       if(fileInputRef.current) fileInputRef.current.value = '';
 
     } catch (error: any) {
@@ -249,7 +263,7 @@ export default function TribePage() {
 
   return (
       <div className="flex flex-col min-h-screen bg-background">
-        <main className="flex-1 overflow-y-auto container mx-auto px-4 py-8">
+        <main className="container mx-auto px-4 py-8">
           <div className="text-center mb-12">
             <h1 className="text-4xl md:text-5xl font-bold tracking-tighter text-primary">
               The Tribe Marketplace
@@ -284,15 +298,22 @@ export default function TribePage() {
                       <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="e.g., 19.99" min="0.01" step="0.01" disabled={isSubmitting} />
                     </div>
                     <div className="space-y-2">
-                      <Label>Product Image</Label>
-                      <Input id="file-upload" type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" disabled={isSubmitting}/>
+                      <Label>Product Images</Label>
+                      <Input id="file-upload" type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" disabled={isSubmitting} multiple/>
                       <Button type="button" variant="outline" className="w-full" onClick={() => fileInputRef.current?.click()} disabled={isSubmitting}>
                         <Upload className="mr-2 h-4 w-4" />
-                        {imageFile ? 'Change Image' : 'Upload Image'}
+                        {imageFiles.length > 0 ? `Add More Images (${imageFiles.length})` : 'Upload Images'}
                       </Button>
-                      {imagePreview && (
-                        <div className="mt-4 relative w-full aspect-video rounded-md border overflow-hidden">
-                          <Image src={imagePreview} alt="Image preview" layout="fill" objectFit="cover" />
+                      {imagePreviews.length > 0 && (
+                        <div className="mt-4 grid grid-cols-3 gap-2">
+                          {imagePreviews.map((preview, index) => (
+                            <div key={index} className="relative w-full aspect-square rounded-md border overflow-hidden">
+                              <Image src={preview} alt="Image preview" layout="fill" objectFit="cover" />
+                              <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 rounded-full" onClick={() => handleRemoveImage(index)}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
