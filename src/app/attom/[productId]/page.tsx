@@ -19,7 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Star, Zap, ArrowLeft, Edit, Upload, Save, Trash2 } from 'lucide-react';
+import { Star, Zap, ArrowLeft, Edit, Upload, Save, Trash2, PlayCircle } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -68,8 +68,8 @@ export default function ProductDetailPage() {
   const [editedName, setEditedName] = useState('');
   const [editedDescription, setEditedDescription] = useState('');
   const [editedPrice, setEditedPrice] = useState('');
-  const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [newMediaFiles, setNewMediaFiles] = useState<{file: File, type: 'image' | 'video'}[]>([]);
+  const [mediaPreviews, setMediaPreviews] = useState<{url: string, type: 'image' | 'video'}[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -99,7 +99,12 @@ export default function ProductDetailPage() {
               setEditedName(productData.authorName);
               setEditedDescription(description);
               setEditedPrice(price);
-              setImagePreviews(productData.mediaURLs || (productData.mediaURL ? [productData.mediaURL] : []));
+              
+              const existingMedia = productData.media || 
+                (productData.mediaURLs || (productData.mediaURL ? [productData.mediaURL] : []))
+                .map(url => ({ url, type: 'image' as const }));
+
+              setMediaPreviews(existingMedia);
               
               const reviewsRef = collection(db, 'posts', productId, 'reviews');
               const q = query(reviewsRef, orderBy('timestamp', 'desc'));
@@ -108,14 +113,6 @@ export default function ProductDetailPage() {
                   setReviews(fetchedReviews);
               }, (error) => {
                   console.error("Error fetching reviews:", error);
-                  if (error.code === 'permission-denied') {
-                      toast({
-                          variant: 'destructive',
-                          title: 'Permission Error',
-                          description: 'Could not load reviews. Your security rules must allow reads on the reviews subcollection.',
-                          duration: 10000,
-                      });
-                  }
               });
               
             } else {
@@ -171,43 +168,37 @@ export default function ProductDetailPage() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const files = Array.from(event.target.files);
-      setNewImageFiles(prev => [...prev, ...files]);
+      const newFilesWithType = files.map(file => ({ file, type: file.type.startsWith('video') ? 'video' : 'image' as 'image' | 'video' }));
+      setNewMediaFiles(prev => [...prev, ...newFilesWithType]);
       
-      const newPreviews = files.map(file => URL.createObjectURL(file));
-      setImagePreviews(prev => [...prev, ...newPreviews]);
+      const newPreviews = files.map(file => ({ url: URL.createObjectURL(file), type: file.type.startsWith('video') ? 'video' : 'image' as 'image' | 'video' }));
+      setMediaPreviews(prev => [...prev, ...newPreviews]);
     }
   };
   
-  const handleRemoveNewImage = (index: number) => {
-    const newFiles = [...newImageFiles];
-    newFiles.splice(index, 1);
-    setNewImageFiles(newFiles);
-    
-    // We also need to remove it from the preview
-    const newPreviews = [...imagePreviews];
-    // Find the correct index in the combined preview array to remove
-    const originalImageCount = product?.mediaURLs?.length || (product?.mediaURL ? 1 : 0);
-    newPreviews.splice(originalImageCount + index, 1);
-    setImagePreviews(newPreviews);
+  const handleRemoveNewMedia = (index: number) => {
+    setNewMediaFiles(prev => prev.filter((_, i) => i !== index));
+    const originalCount = product?.media?.length || 0;
+    setMediaPreviews(prev => prev.filter((_, i) => i !== originalCount + index));
   };
   
-  const handleRemoveExistingImage = async (imageUrl: string) => {
+  const handleRemoveExistingMedia = async (mediaItem: { url: string; type: 'image' | 'video' }) => {
       if (!product || !currentUser || !db || !storage) return;
       setIsSaving(true);
       try {
         const productRef = doc(db, 'posts', product.id);
         
         await updateDoc(productRef, {
-          mediaURLs: arrayRemove(imageUrl)
+          media: arrayRemove(mediaItem)
         });
 
-        const imageRef = ref(storage, imageUrl);
-        await deleteObject(imageRef);
+        const mediaRef = ref(storage, mediaItem.url);
+        await deleteObject(mediaRef);
 
-        toast({ title: "Image Removed", description: "The image has been deleted." });
+        toast({ title: "Media Removed", description: "The file has been deleted." });
       } catch (error) {
-        console.error("Error removing image:", error);
-        toast({ variant: "destructive", title: "Error", description: "Could not remove image." });
+        console.error("Error removing media:", error);
+        toast({ variant: "destructive", title: "Error", description: "Could not remove media." });
       } finally {
         setIsSaving(false);
       }
@@ -218,11 +209,12 @@ export default function ProductDetailPage() {
     if (!product || !currentUser || !db || !storage) return;
     setIsSaving(true);
     try {
-        const uploadedURLs = await Promise.all(
-          newImageFiles.map(async (file) => {
-            const newImageRef = ref(storage, `products/${currentUser.uid}/${Date.now()}_${file.name}`);
-            await uploadBytes(newImageRef, file);
-            return await getDownloadURL(newImageRef);
+        const uploadedMedia = await Promise.all(
+          newMediaFiles.map(async ({ file, type }) => {
+            const newMediaRef = ref(storage, `products/${currentUser.uid}/${Date.now()}_${file.name}`);
+            await uploadBytes(newMediaRef, file);
+            const url = await getDownloadURL(newMediaRef);
+            return { url, type };
           })
         );
         
@@ -232,13 +224,13 @@ export default function ProductDetailPage() {
         await updateDoc(productRef, {
             authorName: editedName,
             content: updatedContent,
-            mediaURLs: arrayUnion(...uploadedURLs),
+            media: arrayUnion(...uploadedMedia),
         });
 
         toast({ title: "Success", description: "Product updated successfully." });
         
         setIsEditing(false);
-        setNewImageFiles([]);
+        setNewMediaFiles([]);
     } catch (error) {
         console.error("Error saving changes:", error);
         toast({ variant: "destructive", title: "Error", description: "Could not save changes." });
@@ -271,7 +263,9 @@ export default function ProductDetailPage() {
   const averageRating = product.averageRating || 0;
   const reviewCount = product.reviewCount || 0;
   
-  const mediaToDisplay = isEditing ? imagePreviews : (product.mediaURLs || (product.mediaURL ? [product.mediaURL] : []));
+  const mediaToDisplay = isEditing ? mediaPreviews : (product.media || 
+      (product.mediaURLs || (product.mediaURL ? [product.mediaURL] : []))
+      .map(url => ({ url, type: 'image' as const })));
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -292,27 +286,40 @@ export default function ProductDetailPage() {
                 <CardContent className="p-0">
                   <Carousel className="w-full">
                       <CarouselContent>
-                          {mediaToDisplay.map((url, index) => (
+                          {mediaToDisplay.map((media, index) => (
                               <CarouselItem key={index}>
-                                  <div className="relative aspect-square">
-                                      <Image
-                                          src={url}
-                                          alt={`${name} - Image ${index + 1}`}
-                                          fill
-                                          className="object-cover"
-                                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                                      />
+                                  <div className="relative aspect-square bg-black">
+                                      {media.type === 'image' ? (
+                                        <Image
+                                            src={media.url}
+                                            alt={`${name} - Media ${index + 1}`}
+                                            fill
+                                            className="object-contain"
+                                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                        />
+                                      ) : (
+                                        <>
+                                        <video
+                                            src={media.url}
+                                            controls
+                                            className="w-full h-full object-contain"
+                                        />
+                                         <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
+                                            <PlayCircle className="w-16 h-16 text-white/70" />
+                                        </div>
+                                        </>
+                                      )}
                                       {isEditing && (
                                         <Button
                                             variant="destructive"
                                             size="icon"
                                             className="absolute top-2 right-2 h-8 w-8 z-10"
                                             onClick={() => {
-                                                const originalCount = product?.mediaURLs?.length || 0;
+                                                const originalCount = product?.media?.length || 0;
                                                 if (index < originalCount) {
-                                                    handleRemoveExistingImage(url);
+                                                    handleRemoveExistingMedia(media);
                                                 } else {
-                                                    handleRemoveNewImage(index - originalCount);
+                                                    handleRemoveNewMedia(index - originalCount);
                                                 }
                                             }}
                                         >
@@ -325,10 +332,10 @@ export default function ProductDetailPage() {
                           {isEditing && (
                             <CarouselItem>
                                 <div className="flex items-center justify-center aspect-square border-2 border-dashed rounded-lg">
-                                    <Input id="file-upload" type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" multiple />
+                                    <Input id="file-upload" type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,video/*" className="hidden" multiple />
                                     <Button type="button" variant="outline" size="lg" className="flex-col h-auto p-8" onClick={() => fileInputRef.current?.click()}>
                                     <Upload className="h-8 w-8 mb-2" />
-                                    Add Images
+                                    Add Media
                                     </Button>
                                 </div>
                             </CarouselItem>

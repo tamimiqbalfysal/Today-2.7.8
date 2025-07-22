@@ -15,12 +15,12 @@ import { collection, addDoc, serverTimestamp, query, where, onSnapshot, orderBy,
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import type { Post as Product } from '@/lib/types';
 import Image from 'next/image';
-import { Upload, Star, ShoppingCart, Trash2, Info, X } from 'lucide-react';
+import { Upload, Star, ShoppingCart, Trash2, Info, X, PlayCircle } from 'lucide-react';
 import Link from 'next/link';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 
-function ProductCard({ product, onDelete, currentUserId }: { product: Product, onDelete: (productId: string, mediaUrls?: string[]) => void, currentUserId?: string }) {
+function ProductCard({ product, onDelete, currentUserId }: { product: Product, onDelete: (productId: string, media?: {url: string, type: string}[]) => void, currentUserId?: string }) {
   const { toast } = useToast();
   const handleAddToCart = (productName: string) => {
     toast({
@@ -34,7 +34,7 @@ function ProductCard({ product, onDelete, currentUserId }: { product: Product, o
   const description = priceMatch ? product.content.substring(0, priceMatch.index).trim() : product.content;
   
   const isOwner = product.authorId === currentUserId;
-  const displayImage = (product.mediaURLs && product.mediaURLs[0]) || product.mediaURL;
+  const displayMedia = (product.media && product.media[0]);
 
   return (
     <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex flex-col">
@@ -56,7 +56,7 @@ function ProductCard({ product, onDelete, currentUserId }: { product: Product, o
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => onDelete(product.id, product.mediaURLs)} className="bg-destructive hover:bg-destructive/90">
+                        <AlertDialogAction onClick={() => onDelete(product.id, product.media)} className="bg-destructive hover:bg-destructive/90">
                             Delete
                         </AlertDialogAction>
                     </AlertDialogFooter>
@@ -65,15 +65,25 @@ function ProductCard({ product, onDelete, currentUserId }: { product: Product, o
          )}
       </CardHeader>
       <CardContent className="p-0 flex flex-col flex-grow">
-        {displayImage && (
-            <div className="relative">
-            <Image
-                src={displayImage}
-                alt={product.authorName}
-                width={600}
-                height={600}
-                className="w-full h-auto aspect-square object-cover"
-            />
+        {displayMedia && (
+            <div className="relative aspect-square bg-black">
+                {displayMedia.type === 'image' ? (
+                    <Image
+                        src={displayMedia.url}
+                        alt={product.authorName}
+                        fill
+                        className="object-cover"
+                    />
+                ) : (
+                    <video
+                        src={displayMedia.url}
+                        className="w-full h-full object-cover"
+                        loop
+                        muted
+                        autoPlay
+                        playsInline
+                    />
+                )}
             </div>
         )}
         <div className="p-4 space-y-2 flex flex-col flex-grow">
@@ -116,8 +126,8 @@ export default function TribePage() {
   const [productName, setProductName] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [mediaFiles, setMediaFiles] = useState<{file: File, type: 'image' | 'video'}[]>([]);
+  const [mediaPreviews, setMediaPreviews] = useState<{url: string, type: 'image' | 'video'}[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -141,13 +151,6 @@ export default function TribePage() {
         setIsLoadingProducts(false);
     }, (error) => {
         console.error("Error fetching products:", error);
-        toast({
-            variant: "destructive",
-            title: "Error",
-            description: "Could not load your listed products. Please check your Firestore security rules if this persists.",
-            duration: 10000,
-        });
-        setIsLoadingProducts(false);
     });
 
     return () => unsubscribe();
@@ -157,35 +160,34 @@ export default function TribePage() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const files = Array.from(event.target.files);
-      setImageFiles(prev => [...prev, ...files]);
-      const newPreviews = files.map(file => URL.createObjectURL(file));
-      setImagePreviews(prev => [...prev, ...newPreviews]);
+      const newFilesWithType = files.map(file => ({
+        file,
+        type: file.type.startsWith('video') ? 'video' : 'image' as 'image' | 'video'
+      }));
+      setMediaFiles(prev => [...prev, ...newFilesWithType]);
+
+      const newPreviews = files.map(file => ({
+        url: URL.createObjectURL(file),
+        type: file.type.startsWith('video') ? 'video' : 'image' as 'image' | 'video'
+      }));
+      setMediaPreviews(prev => [...prev, ...newPreviews]);
     }
   };
   
-  const handleRemoveImage = (index: number) => {
-    setImageFiles(prev => prev.filter((_, i) => i !== index));
-    setImagePreviews(prev => prev.filter((_, i) => i !== index));
+  const handleRemoveMedia = (index: number) => {
+    setMediaFiles(prev => prev.filter((_, i) => i !== index));
+    setMediaPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
 
-  const handleDeleteProduct = async (productId: string, mediaUrls?: string[]) => {
-    if (!db || !storage || !user) {
-        toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to delete products.' });
-        return;
-    }
+  const handleDeleteProduct = async (productId: string, media?: {url: string, type: string}[]) => {
+    if (!db || !storage || !user) return;
     
-    const productToDelete = products.find(p => p.id === productId);
-    if (!productToDelete || productToDelete.authorId !== user.uid) {
-        toast({ variant: 'destructive', title: 'Permission Denied', description: 'You can only delete your own products.' });
-        return;
-    }
-
     try {
         await deleteDoc(doc(db, 'posts', productId));
-        if (mediaUrls && mediaUrls.length > 0) {
-            await Promise.all(mediaUrls.map(url => {
-                const storageRef = ref(storage, url);
+        if (media && media.length > 0) {
+            await Promise.all(media.map(item => {
+                const storageRef = ref(storage, item.url);
                 return deleteObject(storageRef).catch(err => {
                     if (err.code !== 'storage/object-not-found') throw err;
                 });
@@ -194,18 +196,14 @@ export default function TribePage() {
         toast({ title: 'Success', description: 'Product deleted successfully.' });
     } catch (error: any) {
         console.error("Error deleting product:", error);
-        let description = 'Could not delete the product. Please try again.';
-        if (error.code === 'permission-denied' || error.code === 'PERMISSION_DENIED') {
-            description = "Permission Denied. Please update your Firestore security rules to allow this action.";
-        }
-        toast({ variant: 'destructive', title: 'Deletion Failed', description: description, duration: 10000 });
+        toast({ variant: 'destructive', title: 'Deletion Failed', description: 'Could not delete the product.' });
     }
   };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!productName || !description || !price || imageFiles.length === 0 || !user) {
-      toast({ variant: 'destructive', title: 'Missing Fields', description: 'Please fill out all fields and select at least one image.' });
+    if (!productName || !description || !price || mediaFiles.length === 0 || !user) {
+      toast({ variant: 'destructive', title: 'Missing Fields', description: 'Please fill out all fields and select at least one media file.' });
       return;
     }
 
@@ -213,11 +211,12 @@ export default function TribePage() {
     try {
       if (!storage || !db) throw new Error("Firebase not configured");
       
-      const imageUrls = await Promise.all(
-        imageFiles.map(async file => {
+      const mediaData = await Promise.all(
+        mediaFiles.map(async ({ file, type }) => {
           const storageRef = ref(storage, `products/${user.uid}/${Date.now()}_${file.name}`);
           await uploadBytes(storageRef, file);
-          return await getDownloadURL(storageRef);
+          const url = await getDownloadURL(storageRef);
+          return { url, type };
         })
       );
 
@@ -231,8 +230,7 @@ export default function TribePage() {
         likes: [],
         laughs: [],
         comments: [],
-        mediaURLs: imageUrls,
-        mediaType: 'image',
+        media: mediaData,
         type: 'original',
         category: 'Tribe',
       });
@@ -242,19 +240,13 @@ export default function TribePage() {
       setProductName('');
       setDescription('');
       setPrice('');
-      setImageFiles([]);
-      setImagePreviews([]);
+      setMediaFiles([]);
+      setMediaPreviews([]);
       if(fileInputRef.current) fileInputRef.current.value = '';
 
     } catch (error: any) {
       console.error('Error adding product:', error);
-      let description = "An unexpected error occurred.";
-      if (error.code === 'storage/unauthorized') {
-        description = `You don't have permission to upload files. Please check your Storage security rules.`;
-      } else if (error.code === 'permission-denied') {
-        description = `You don't have permission to add products. Please check your Firestore security rules.`;
-      }
-      toast({ variant: 'destructive', title: 'Submission Failed', description });
+      toast({ variant: 'destructive', title: 'Submission Failed', description: 'An unexpected error occurred.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -298,18 +290,22 @@ export default function TribePage() {
                       <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="e.g., 19.99" min="0.01" step="0.01" disabled={isSubmitting} />
                     </div>
                     <div className="space-y-2">
-                      <Label>Product Images</Label>
-                      <Input id="file-upload" type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" disabled={isSubmitting} multiple/>
+                      <Label>Product Media</Label>
+                      <Input id="file-upload" type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,video/*" className="hidden" disabled={isSubmitting} multiple/>
                       <Button type="button" variant="outline" className="w-full" onClick={() => fileInputRef.current?.click()} disabled={isSubmitting}>
                         <Upload className="mr-2 h-4 w-4" />
-                        {imageFiles.length > 0 ? `Add More Images (${imageFiles.length})` : 'Upload Images'}
+                        {mediaFiles.length > 0 ? `Add More Media (${mediaFiles.length})` : 'Upload Images/Videos'}
                       </Button>
-                      {imagePreviews.length > 0 && (
+                      {mediaPreviews.length > 0 && (
                         <div className="mt-4 grid grid-cols-3 gap-2">
-                          {imagePreviews.map((preview, index) => (
+                          {mediaPreviews.map((media, index) => (
                             <div key={index} className="relative w-full aspect-square rounded-md border overflow-hidden">
-                              <Image src={preview} alt="Image preview" layout="fill" objectFit="cover" />
-                              <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 rounded-full" onClick={() => handleRemoveImage(index)}>
+                              {media.type === 'image' ? (
+                                <Image src={media.url} alt="Media preview" layout="fill" objectFit="cover" />
+                              ) : (
+                                <video src={media.url} className="w-full h-full object-cover" loop muted autoPlay playsInline />
+                              )}
+                              <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 rounded-full" onClick={() => handleRemoveMedia(index)}>
                                 <X className="h-4 w-4" />
                               </Button>
                             </div>

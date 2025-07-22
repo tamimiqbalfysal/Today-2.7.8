@@ -35,9 +35,10 @@ export interface Post {
   likes: string[]; // Array of user UIDs
   laughs: string[]; // Array of user UIDs
   comments: Comment[];
-  mediaURL?: string;
-  mediaURLs?: string[]; // For multiple images
-  mediaType?: 'image' | 'video';
+  media?: { url: string; type: 'image' | 'video' }[]; // For multiple images and videos
+  mediaURL?: string; // Legacy single image
+  mediaURLs?: string[]; // Legacy multiple images
+  mediaType?: 'image' | 'video'; // Legacy single media type
   mediaURLBangla?: string;
   mediaTypeBangla?: 'image' | 'video';
   type: 'original' | 'share';
