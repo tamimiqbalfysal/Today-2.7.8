@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -14,21 +15,23 @@ import { collection, addDoc, serverTimestamp, query, where, onSnapshot, orderBy,
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import type { Post as Product } from '@/lib/types';
 import Image from 'next/image';
-import { Upload, Star, ShoppingCart, Trash2, Info, X, Check, ChevronsUpDown } from 'lucide-react';
+import { Upload, Star, ShoppingCart, Trash2, Info, X } from 'lucide-react';
 import Link from 'next/link';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { countries } from '@/lib/countries';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { useCart } from '@/contexts/cart-context';
 
 function ProductCard({ product, onDelete, currentUserId }: { product: Product, onDelete: (productId: string, mediaUrl?: string) => void, currentUserId?: string }) {
   const { toast } = useToast();
-  const handleAddToCart = (productName: string) => {
+  const { addToCart } = useCart();
+
+  const handleAddToCart = (product: Product) => {
+    addToCart(product, 1);
     toast({
       title: 'Added to Cart',
-      description: `${productName} has been added to your cart.`,
+      description: `${product.authorName} has been added to your cart.`,
     });
   };
 
@@ -67,15 +70,16 @@ function ProductCard({ product, onDelete, currentUserId }: { product: Product, o
          )}
       </CardHeader>
       <CardContent className="p-0 flex flex-col flex-grow">
-        <div className="relative">
-          <Image
-            src={product.mediaURL!}
-            alt={product.authorName}
-            width={600}
-            height={600}
-            className="w-full h-auto aspect-square object-cover"
-          />
-        </div>
+        {product.mediaURL && (
+            <div className="relative aspect-square">
+                <Image
+                    src={product.mediaURL}
+                    alt={product.authorName}
+                    fill
+                    className="object-cover"
+                />
+            </div>
+        )}
         <div className="p-4 space-y-2 flex flex-col flex-grow">
           <p className="text-sm text-muted-foreground">{description}</p>
           <div className="flex-grow" />
@@ -100,7 +104,7 @@ function ProductCard({ product, onDelete, currentUserId }: { product: Product, o
                 <Info className="mr-2 h-4 w-4" /> Details
               </Link>
             </Button>
-            <Button className="w-full" onClick={() => handleAddToCart(product.authorName)}>
+            <Button className="w-full" onClick={() => handleAddToCart(product)}>
               <ShoppingCart className="mr-2 h-4 w-4" /> Add to Cart
             </Button>
         </div>
@@ -116,14 +120,14 @@ export default function TribePage() {
   const [productName, setProductName] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
+  const [currency, setCurrency] = useState('');
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [mediaPreviews, setMediaPreviews] = useState<string[]>([]);
-  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
+  const [availableCountry, setAvailableCountry] = useState<string | undefined>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
-  const [openCountryPopover, setOpenCountryPopover] = useState(false);
 
   useEffect(() => {
     if (!db || !user) return;
@@ -183,8 +187,8 @@ export default function TribePage() {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!productName || !description || !price || mediaFiles.length === 0 || !user) {
-      toast({ variant: 'destructive', title: 'Missing Fields', description: 'Please fill out all fields and select at least one image.' });
+    if (!productName || !description || !price || !currency || !availableCountry || mediaFiles.length === 0 || !user) {
+      toast({ variant: 'destructive', title: 'Missing Fields', description: 'Please fill out all fields, select a country, currency, and at least one image.' });
       return;
     }
 
@@ -214,7 +218,8 @@ export default function TribePage() {
         media: mediaData,
         type: 'original',
         category: 'Tribe',
-        availableCountries: selectedCountries,
+        availableCountry: availableCountry,
+        currency: currency,
       });
       
       toast({ title: 'Success!', description: 'Your product has been listed for sale.' });
@@ -222,9 +227,10 @@ export default function TribePage() {
       setProductName('');
       setDescription('');
       setPrice('');
+      setCurrency('');
       setMediaFiles([]);
       setMediaPreviews([]);
-      setSelectedCountries([]);
+      setAvailableCountry(undefined);
       if(fileInputRef.current) fileInputRef.current.value = '';
 
     } catch (error: any) {
@@ -268,57 +274,31 @@ export default function TribePage() {
                       <Label htmlFor="description">Description</Label>
                       <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe your product in detail..." disabled={isSubmitting} />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="price">Price (USD)</Label>
-                      <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="e.g., 19.99" min="0.01" step="0.01" disabled={isSubmitting} />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="price">Price</Label>
+                        <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="e.g., 19.99" min="0.01" step="0.01" disabled={isSubmitting} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="currency">Currency</Label>
+                        <Input id="currency" value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} placeholder="e.g., USD" maxLength={3} disabled={isSubmitting} />
+                      </div>
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Available Countries</Label>
-                      <Popover open={openCountryPopover} onOpenChange={setOpenCountryPopover}>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" role="combobox" aria-expanded={openCountryPopover} className="w-full justify-between h-auto">
-                            <div className="flex gap-1 flex-wrap">
-                              {selectedCountries.length > 0
-                                ? countries
-                                    .filter((c) => selectedCountries.includes(c.code))
-                                    .map((c) => <Badge key={c.code} variant="secondary">{c.name}</Badge>)
-                                : "Select countries..."}
-                            </div>
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                            <Command>
-                                <CommandInput placeholder="Search country..." />
-                                <CommandList>
-                                <CommandEmpty>No country found.</CommandEmpty>
-                                <CommandGroup>
-                                    {countries.map((country) => (
-                                    <CommandItem
-                                        key={country.code}
-                                        onSelect={() => {
-                                            setSelectedCountries((prev) =>
-                                                prev.includes(country.code)
-                                                ? prev.filter((c) => c !== country.code)
-                                                : [...prev, country.code]
-                                            );
-                                        }}
-                                    >
-                                        <Check
-                                        className={cn(
-                                            "mr-2 h-4 w-4",
-                                            selectedCountries.includes(country.code) ? "opacity-100" : "opacity-0"
-                                        )}
-                                        />
-                                        {country.name}
-                                    </CommandItem>
-                                    ))}
-                                </CommandGroup>
-                                </CommandList>
-                            </Command>
-                        </PopoverContent>
-                      </Popover>
+                      <Label>Available Country</Label>
+                      <Select onValueChange={setAvailableCountry} value={availableCountry} disabled={isSubmitting}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a country" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {countries.map((country) => (
+                            <SelectItem key={country.code} value={country.code}>
+                              {country.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="space-y-2">
