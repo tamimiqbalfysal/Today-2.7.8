@@ -18,6 +18,7 @@ import type { Post as Product } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCart } from '@/contexts/cart-context';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { useAuth } from '@/contexts/auth-context';
 
 function ProductCard({ product }: { product: Product }) {
   const { toast } = useToast();
@@ -100,6 +101,7 @@ function ProductCard({ product }: { product: Product }) {
 }
 
 export default function AttomPage() {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<string[]>(['Tribe', 'Gift Garden']);
@@ -138,12 +140,26 @@ export default function AttomPage() {
   const filteredProducts = useMemo(() => {
     let productsToShow = products;
     
+    // Filter by category
     if (activeFilters.length > 0) {
         productsToShow = productsToShow.filter(p => activeFilters.includes(p.category || ''));
     } else {
         productsToShow = [];
     }
+    
+    // Filter by country if a user is logged in and has a country
+    if (user?.country) {
+      productsToShow = productsToShow.filter(p => {
+        // If a product has no country restrictions, it's available to everyone
+        if (!p.availableCountries || p.availableCountries.length === 0) {
+          return true;
+        }
+        // Otherwise, check if the user's country is in the list of available countries
+        return p.availableCountries.includes(user.country);
+      });
+    }
 
+    // Filter by search term
     if (searchTerm) {
       productsToShow = productsToShow.filter(p =>
         p.authorName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -151,7 +167,7 @@ export default function AttomPage() {
     }
 
     return productsToShow;
-  }, [products, searchTerm, activeFilters]);
+  }, [products, searchTerm, activeFilters, user?.country]);
   
   const handleFilterChange = (filter: string) => {
     setActiveFilters(prev => 

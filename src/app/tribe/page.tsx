@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -15,13 +14,16 @@ import { collection, addDoc, serverTimestamp, query, where, onSnapshot, orderBy,
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import type { Post as Product } from '@/lib/types';
 import Image from 'next/image';
-import { Upload, Star, ShoppingCart, Trash2, Info, X } from 'lucide-react';
+import { Upload, Star, ShoppingCart, Trash2, Info, X, Check, ChevronsUpDown } from 'lucide-react';
 import Link from 'next/link';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { countries } from '@/lib/countries';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
-
-function ProductCard({ product, onDelete, currentUserId }: { product: Product, onDelete: (productId: string, media?: {url: string, type: string}[]) => void, currentUserId?: string }) {
+function ProductCard({ product, onDelete, currentUserId }: { product: Product, onDelete: (productId: string, mediaUrl?: string) => void, currentUserId?: string }) {
   const { toast } = useToast();
   const handleAddToCart = (productName: string) => {
     toast({
@@ -35,10 +37,6 @@ function ProductCard({ product, onDelete, currentUserId }: { product: Product, o
   const description = priceMatch ? product.content.substring(0, priceMatch.index).trim() : product.content;
   
   const isOwner = product.authorId === currentUserId;
-  const displayMedia = (product.media && product.media[0]);
-  
-  const averageRating = product.averageRating || 0;
-  const reviewCount = product.reviewCount || 0;
 
   return (
     <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex flex-col">
@@ -60,7 +58,7 @@ function ProductCard({ product, onDelete, currentUserId }: { product: Product, o
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => onDelete(product.id, product.media)} className="bg-destructive hover:bg-destructive/90">
+                        <AlertDialogAction onClick={() => onDelete(product.id, product.mediaURL)} className="bg-destructive hover:bg-destructive/90">
                             Delete
                         </AlertDialogAction>
                     </AlertDialogFooter>
@@ -69,16 +67,15 @@ function ProductCard({ product, onDelete, currentUserId }: { product: Product, o
          )}
       </CardHeader>
       <CardContent className="p-0 flex flex-col flex-grow">
-        {displayMedia && (
-            <div className="relative aspect-square bg-black">
-                <Image
-                    src={displayMedia.url}
-                    alt={product.authorName}
-                    fill
-                    className="object-cover"
-                />
-            </div>
-        )}
+        <div className="relative">
+          <Image
+            src={product.mediaURL!}
+            alt={product.authorName}
+            width={600}
+            height={600}
+            className="w-full h-auto aspect-square object-cover"
+          />
+        </div>
         <div className="p-4 space-y-2 flex flex-col flex-grow">
           <p className="text-sm text-muted-foreground">{description}</p>
           <div className="flex-grow" />
@@ -87,11 +84,11 @@ function ProductCard({ product, onDelete, currentUserId }: { product: Product, o
               {[...Array(5)].map((_, i) => (
                 <Star
                   key={i}
-                  className={cn("h-5 w-5", i < averageRating ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground")}
+                  className="h-5 w-5 text-muted-foreground"
                 />
               ))}
             </div>
-            <span className="text-sm text-muted-foreground">({reviewCount} Review{reviewCount !== 1 ? 's' : ''})</span>
+            <span className="text-sm text-muted-foreground">(0 Review)</span>
           </div>
           <p className="text-2xl font-bold">${price}</p>
         </div>
@@ -121,22 +118,23 @@ export default function TribePage() {
   const [price, setPrice] = useState('');
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [mediaPreviews, setMediaPreviews] = useState<string[]>([]);
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  const [openCountryPopover, setOpenCountryPopover] = useState(false);
 
   useEffect(() => {
     if (!db || !user) return;
     setIsLoadingProducts(true);
 
     const postsCollection = collection(db, 'posts');
-    const userPostsQuery = query(postsCollection, where('authorId', '==', user.uid));
+    const userPostsQuery = query(postsCollection, where('authorId', '==', user.uid), where('category', '==', 'Tribe'));
 
     const unsubscribe = onSnapshot(userPostsQuery, (snapshot) => {
         const fetchedProducts = snapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() } as Product))
-            .filter(product => product.category === 'Tribe');
+            .map(doc => ({ id: doc.id, ...doc.data() } as Product));
 
         fetchedProducts.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
 
@@ -165,18 +163,16 @@ export default function TribePage() {
   };
 
 
-  const handleDeleteProduct = async (productId: string, media?: {url: string, type: string}[]) => {
+  const handleDeleteProduct = async (productId: string, mediaUrl?: string) => {
     if (!db || !storage || !user) return;
     
     try {
         await deleteDoc(doc(db, 'posts', productId));
-        if (media && media.length > 0) {
-            await Promise.all(media.map(item => {
-                const storageRef = ref(storage, item.url);
-                return deleteObject(storageRef).catch(err => {
-                    if (err.code !== 'storage/object-not-found') throw err;
-                });
-            }));
+        if (mediaUrl) {
+            const storageRef = ref(storage, mediaUrl);
+            await deleteObject(storageRef).catch(err => {
+                if (err.code !== 'storage/object-not-found') throw err;
+            });
         }
         toast({ title: 'Success', description: 'Product deleted successfully.' });
     } catch (error: any) {
@@ -218,6 +214,7 @@ export default function TribePage() {
         media: mediaData,
         type: 'original',
         category: 'Tribe',
+        availableCountries: selectedCountries,
       });
       
       toast({ title: 'Success!', description: 'Your product has been listed for sale.' });
@@ -227,6 +224,7 @@ export default function TribePage() {
       setPrice('');
       setMediaFiles([]);
       setMediaPreviews([]);
+      setSelectedCountries([]);
       if(fileInputRef.current) fileInputRef.current.value = '';
 
     } catch (error: any) {
@@ -274,6 +272,55 @@ export default function TribePage() {
                       <Label htmlFor="price">Price (USD)</Label>
                       <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="e.g., 19.99" min="0.01" step="0.01" disabled={isSubmitting} />
                     </div>
+
+                    <div className="space-y-2">
+                      <Label>Available Countries</Label>
+                      <Popover open={openCountryPopover} onOpenChange={setOpenCountryPopover}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" role="combobox" aria-expanded={openCountryPopover} className="w-full justify-between h-auto">
+                            <div className="flex gap-1 flex-wrap">
+                              {selectedCountries.length > 0
+                                ? countries
+                                    .filter((c) => selectedCountries.includes(c.code))
+                                    .map((c) => <Badge key={c.code} variant="secondary">{c.name}</Badge>)
+                                : "Select countries..."}
+                            </div>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                            <Command>
+                                <CommandInput placeholder="Search country..." />
+                                <CommandList>
+                                <CommandEmpty>No country found.</CommandEmpty>
+                                <CommandGroup>
+                                    {countries.map((country) => (
+                                    <CommandItem
+                                        key={country.code}
+                                        onSelect={() => {
+                                            setSelectedCountries((prev) =>
+                                                prev.includes(country.code)
+                                                ? prev.filter((c) => c !== country.code)
+                                                : [...prev, country.code]
+                                            );
+                                        }}
+                                    >
+                                        <Check
+                                        className={cn(
+                                            "mr-2 h-4 w-4",
+                                            selectedCountries.includes(country.code) ? "opacity-100" : "opacity-0"
+                                        )}
+                                        />
+                                        {country.name}
+                                    </CommandItem>
+                                    ))}
+                                </CommandGroup>
+                                </CommandList>
+                            </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
                     <div className="space-y-2">
                       <Label>Product Images</Label>
                       <Input id="file-upload" type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" disabled={isSubmitting} multiple/>

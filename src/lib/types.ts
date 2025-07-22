@@ -50,6 +50,7 @@ export interface Post {
   isPrivate?: boolean;
   offenceCredit?: number;
   localColor?: string;
+  availableCountries?: string[];
 }
 
 export interface Review {
@@ -102,4 +103,3 @@ export interface ThinkCourse {
   date: Timestamp;
   meetLink: string;
 }
-
