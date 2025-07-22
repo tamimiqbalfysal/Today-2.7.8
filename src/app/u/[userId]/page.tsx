@@ -181,24 +181,16 @@ export default function UserProfilePage() {
               
               const postData = postDoc.data();
               const reactionField = reaction === 'like' ? 'likes' : 'laughs';
-              const otherReactionField = reaction === 'like' ? 'laughs' : 'likes';
-              const currentReactors = postData[reactionField] || [];
-              const otherReactors = postData[otherReactionField] || [];
-              const isAlreadyReacted = currentReactors.includes(reactorId);
+              const currentReactors: string[] = postData[reactionField] || [];
+              const isReacting = !currentReactors.includes(reactorId);
 
-              if (isAlreadyReacted) {
-                  transaction.update(postRef, {
-                      [reactionField]: arrayRemove(reactorId)
-                  });
+              const updateData: { [key: string]: any } = {};
+              if (isReacting) {
+                  updateData[reactionField] = arrayUnion(reactorId);
               } else {
-                  const updates: { [key: string]: any } = {
-                      [reactionField]: arrayUnion(reactorId)
-                  };
-                  if (otherReactors.includes(reactorId)) {
-                      updates[otherReactionField] = arrayRemove(reactorId);
-                  }
-                  transaction.update(postRef, updates);
+                  updateData[reactionField] = arrayRemove(reactorId);
               }
+              transaction.update(postRef, updateData);
           });
       } catch (error) {
           console.error("Error reacting to post:", error);
@@ -231,24 +223,48 @@ export default function UserProfilePage() {
 
   const handleSharePost = async (
     content: string,
+    contentBangla: string,
     file: File | null,
+    fileBangla: File | null,
+    defenceCredit: number,
+    localColor: string,
     postType: 'original' | 'share',
     sharedPostId: string
   ) => {
     if (!currentUser || !db) return;
     try {
-      await addDoc(collection(db, 'posts'), {
-        authorId: currentUser.uid,
-        authorName: currentUser.name,
-        authorPhotoURL: currentUser.photoURL,
-        content,
-        timestamp: Timestamp.now(),
-        likes: [],
-        laughs: [],
-        comments: [],
-        type: postType,
-        sharedPostId,
-      });
+        await runTransaction(db, async (transaction) => {
+            const newPostData = {
+                authorId: currentUser.uid,
+                authorName: currentUser.name,
+                authorPhotoURL: currentUser.photoURL,
+                content,
+                contentBangla,
+                timestamp: Timestamp.now(),
+                likes: [],
+                laughs: [],
+                comments: [],
+                type: postType,
+                sharedPostId,
+                localColor
+            };
+
+            const postCollectionRef = collection(db, 'posts');
+            transaction.set(doc(postCollectionRef), newPostData);
+
+            const sharedPostRef = doc(db, 'posts', sharedPostId);
+            const sharedPostDoc = await transaction.get(sharedPostRef);
+            if (sharedPostDoc.exists()) {
+                const originalAuthorId = sharedPostDoc.data().authorId;
+                if (originalAuthorId && originalAuthorId !== currentUser.uid) {
+                    const currentUserRef = doc(db, 'users', currentUser.uid);
+                    const originalAuthorRef = doc(db, 'users', originalAuthorId);
+                    transaction.update(currentUserRef, { following: arrayUnion(originalAuthorId) });
+                    transaction.update(originalAuthorRef, { followers: arrayUnion(currentUser.uid) });
+                }
+            }
+        });
+
       toast({ title: 'Shared!', description: 'Post shared successfully.' });
     } catch (error) {
       console.error('Error sharing post:', error);

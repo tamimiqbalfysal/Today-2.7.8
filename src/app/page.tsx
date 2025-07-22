@@ -116,27 +116,17 @@ export default function TodayPage() {
 
                 const postData = postDoc.data();
                 const reactionField = reaction === 'like' ? 'likes' : 'laughs';
-                const otherReactionField = reaction === 'like' ? 'laughs' : 'likes';
-                const currentReactors = postData[reactionField] || [];
-                const otherReactors = postData[otherReactionField] || [];
-                const isAlreadyReacted = currentReactors.includes(reactorId);
+                const currentReactors: string[] = postData[reactionField] || [];
+                const isReacting = !currentReactors.includes(reactorId);
 
-                if (isAlreadyReacted) {
-                    // User is un-reacting
-                    transaction.update(postRef, {
-                        [reactionField]: arrayRemove(reactorId)
-                    });
+                const updateData: { [key: string]: any } = {};
+
+                if (isReacting) {
+                    updateData[reactionField] = arrayUnion(reactorId);
                 } else {
-                    // User is adding a new reaction
-                    const updates: { [key: string]: any } = {
-                        [reactionField]: arrayUnion(reactorId)
-                    };
-                    // If user reacted to the other type, remove it
-                    if (otherReactors.includes(reactorId)) {
-                        updates[otherReactionField] = arrayRemove(reactorId);
-                    }
-                    transaction.update(postRef, updates);
+                    updateData[reactionField] = arrayRemove(reactorId);
                 }
+                transaction.update(postRef, updateData);
             });
         } catch (error: any) {
             console.error("Error reacting to post:", error);
@@ -203,69 +193,82 @@ export default function TodayPage() {
       if (!user || !db || (!content.trim() && !file && !contentBangla.trim() && !fileBangla && postType === 'original')) return;
   
       try {
-        let mediaURL: string | undefined = undefined;
-        let mediaType: 'image' | 'video' | undefined = undefined;
-        let mediaURLBangla: string | undefined = undefined;
-        let mediaTypeBangla: 'image' | 'video' | undefined = undefined;
-  
-        if (file && storage) {
-          const storageRef = ref(storage, `posts/${user.uid}/${Date.now()}_${file.name}`);
-          const snapshot = await uploadBytes(storageRef, file);
-          mediaURL = await getDownloadURL(snapshot.ref);
-          mediaType = file.type.startsWith('image/') ? 'image' : 'video';
-        }
-
-        if (fileBangla && storage) {
-          const storageRef = ref(storage, `posts/${user.uid}/${Date.now()}_${fileBangla.name}_bn`);
-          const snapshot = await uploadBytes(storageRef, fileBangla);
-          mediaURLBangla = await getDownloadURL(snapshot.ref);
-          mediaTypeBangla = fileBangla.type.startsWith('image/') ? 'image' : 'video';
-        }
-  
-        const newPostData: Omit<Post, 'id' | 'sharedPost'> = {
-          authorId: user.uid,
-          authorName: user.name,
-          authorPhotoURL: user.photoURL || `https://placehold.co/40x40/FF69B4/FFFFFF?text=${user.name.charAt(0)}`,
-          content: content,
-          contentBangla: contentBangla,
-          timestamp: Timestamp.now(),
-          likes: [],
-          laughs: [],
-          comments: [],
-          type: postType,
-          isPrivate: false,
-          ...(mediaURL && { mediaURL }),
-          ...(mediaType && { mediaType }),
-          ...(mediaURLBangla && { mediaURLBangla }),
-          ...(mediaTypeBangla && { mediaTypeBangla }),
-          ...(defenceCredit > 0 && { defenceCredit }),
-          ...(localColor && { localColor }),
-          ...(postType === 'share' && sharedPostId && { sharedPostId }),
-        };
-  
-        const userDocRef = doc(db, 'users', user.uid);
-        
         await runTransaction(db, async (transaction) => {
-          const userDoc = await transaction.get(userDocRef);
-          if (!userDoc.exists()) {
-            throw "User does not exist!";
-          }
-          
-          const currentCredits = userDoc.data().credits || 0;
-          if (currentCredits < defenceCredit) {
-            throw new Error("You do not have enough credits.");
-          }
+            let mediaURL: string | undefined = undefined;
+            let mediaType: 'image' | 'video' | undefined = undefined;
+            let mediaURLBangla: string | undefined = undefined;
+            let mediaTypeBangla: 'image' | 'video' | undefined = undefined;
 
-          const postCollectionRef = collection(db, 'posts');
-          transaction.set(doc(postCollectionRef), newPostData);
+            if (file && storage) {
+                const storageRef = ref(storage, `posts/${user.uid}/${Date.now()}_${file.name}`);
+                await uploadBytes(storageRef, file);
+                mediaURL = await getDownloadURL(storageRef);
+                mediaType = file.type.startsWith('image/') ? 'image' : 'video';
+            }
 
-          const creditChange = 10 - defenceCredit;
-          transaction.update(userDocRef, { credits: increment(creditChange) });
+            if (fileBangla && storage) {
+                const storageRef = ref(storage, `posts/${user.uid}/${Date.now()}_${fileBangla.name}_bn`);
+                await uploadBytes(storageRef, fileBangla);
+                mediaURLBangla = await getDownloadURL(storageRef);
+                mediaTypeBangla = fileBangla.type.startsWith('image/') ? 'image' : 'video';
+            }
+
+            const newPostData: Omit<Post, 'id' | 'sharedPost'> = {
+                authorId: user.uid,
+                authorName: user.name,
+                authorPhotoURL: user.photoURL || `https://placehold.co/40x40/FF69B4/FFFFFF?text=${user.name.charAt(0)}`,
+                content: content,
+                contentBangla: contentBangla,
+                timestamp: Timestamp.now(),
+                likes: [],
+                laughs: [],
+                comments: [],
+                type: postType,
+                isPrivate: false,
+                ...(mediaURL && { mediaURL }),
+                ...(mediaType && { mediaType }),
+                ...(mediaURLBangla && { mediaURLBangla }),
+                ...(mediaTypeBangla && { mediaTypeBangla }),
+                ...(defenceCredit > 0 && { defenceCredit }),
+                ...(localColor && { localColor }),
+                ...(postType === 'share' && sharedPostId && { sharedPostId }),
+            };
+
+            const userDocRef = doc(db, 'users', user.uid);
+            const userDoc = await transaction.get(userDocRef);
+            if (!userDoc.exists()) throw "User does not exist!";
+
+            const currentCredits = userDoc.data().credits || 0;
+            if (currentCredits < defenceCredit) {
+                throw new Error("You do not have enough credits.");
+            }
+
+            const postCollectionRef = collection(db, 'posts');
+            transaction.set(doc(postCollectionRef), newPostData);
+
+            if (postType === 'original') {
+                const creditChange = 10 - defenceCredit;
+                transaction.update(userDocRef, { credits: increment(creditChange) });
+            }
+
+            // If sharing, also follow the original author
+            if (postType === 'share' && sharedPostId) {
+                const sharedPostRef = doc(db, 'posts', sharedPostId);
+                const sharedPostDoc = await transaction.get(sharedPostRef);
+                if (sharedPostDoc.exists()) {
+                    const originalAuthorId = sharedPostDoc.data().authorId;
+                    if (originalAuthorId && originalAuthorId !== user.uid) {
+                        const originalAuthorRef = doc(db, 'users', originalAuthorId);
+                        transaction.update(userDocRef, { following: arrayUnion(originalAuthorId) });
+                        transaction.update(originalAuthorRef, { followers: arrayUnion(user.uid) });
+                    }
+                }
+            }
         });
   
         toast({
           title: "Post Created!",
-          description: `Your story has been shared. Credits changed by ${10 - defenceCredit}.`,
+          description: `Your story has been shared.`,
         });
 
       } catch (error: any) {
