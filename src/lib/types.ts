@@ -122,3 +122,22 @@ export interface Gig {
   reviews: number; // count
   timestamp: Timestamp;
 }
+
+export interface Chat {
+  id: string;
+  participants: string[]; // array of user UIDs
+  participantDetails: { [key: string]: { name: string, photoURL?: string } };
+  lastMessage?: {
+    text: string;
+    timestamp: Timestamp;
+    senderId: string;
+  };
+}
+
+export interface Message {
+  id: string;
+  chatId: string;
+  senderId: string;
+  text: string;
+  timestamp: Timestamp;
+}

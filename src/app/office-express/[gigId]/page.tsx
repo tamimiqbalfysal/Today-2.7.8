@@ -9,9 +9,10 @@ import type { Gig } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Star, Clock, ArrowLeft, Check, ShoppingBag } from 'lucide-react';
+import { Star, Clock, ArrowLeft, Check, MessageSquare } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/auth-context';
 
 function GigPageSkeleton() {
   return (
@@ -42,6 +43,7 @@ export default function GigDetailPage() {
   const params = useParams();
   const gigId = params.gigId as string;
   const router = useRouter();
+  const { user: currentUser } = useAuth();
   const [gig, setGig] = useState<Gig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -82,6 +84,8 @@ export default function GigDetailPage() {
     "High resolution",
     "Custom design"
   ];
+  
+  const isOwner = currentUser?.uid === gig.sellerId;
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -149,8 +153,10 @@ export default function GigDetailPage() {
                          </li>
                        ))}
                     </ul>
-                    <Button size="lg" className="w-full">
-                       <ShoppingBag className="mr-2 h-5 w-5" /> Continue (${gig.price.toFixed(2)})
+                     <Button asChild size="lg" className="w-full" disabled={isOwner}>
+                       <Link href={`/chat/${gig.sellerId}`}>
+                         <MessageSquare className="mr-2 h-5 w-5" /> Contact Seller
+                       </Link>
                     </Button>
                 </CardContent>
               </Card>
