@@ -30,6 +30,7 @@ const apps: DrawerApp[] = [
 const moreApps: DrawerApp[] = [
     { id: 'gamezone', name: 'Gamezone', logo: 'https://placehold.co/48x48/4caf50/FFFFFF?text=G', href: '/gamezone' },
     { id: 'vertigo', name: 'Vertigo', logo: 'https://placehold.co/48x48/9c27b0/ffffff?text=V', href: '/vertigo' },
+    { id: 'food-factory', name: 'Food Factory', logo: 'https://placehold.co/48x48/ff5722/ffffff?text=F', href: '/food-factory' },
 ];
 
 export default function AddPage() {
