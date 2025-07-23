@@ -181,14 +181,20 @@ export default function UserProfilePage() {
               
               const postData = postDoc.data();
               const reactionField = reaction === 'like' ? 'likes' : 'laughs';
+              const oppositeReactionField = reaction === 'like' ? 'laughs' : 'likes';
               const currentReactors: string[] = postData[reactionField] || [];
-              const isReacting = !currentReactors.includes(reactorId);
-
+              const oppositeReactors: string[] = postData[oppositeReactionField] || [];
+              
               const updateData: { [key: string]: any } = {};
-              if (isReacting) {
-                  updateData[reactionField] = arrayUnion(reactorId);
-              } else {
+
+              if (oppositeReactors.includes(reactorId)) {
+                  updateData[oppositeReactionField] = arrayRemove(reactorId);
+              }
+
+              if (currentReactors.includes(reactorId)) {
                   updateData[reactionField] = arrayRemove(reactorId);
+              } else {
+                  updateData[reactionField] = arrayUnion(reactorId);
               }
               transaction.update(postRef, updateData);
           });
@@ -235,8 +241,14 @@ export default function UserProfilePage() {
     try {
         await runTransaction(db, async (transaction) => {
             // READ FIRST
-            const sharedPostRef = doc(db, 'posts', sharedPostId);
-            const sharedPostDoc = await transaction.get(sharedPostRef);
+            let originalAuthorId: string | undefined;
+            if (sharedPostId) {
+                const sharedPostRef = doc(db, 'posts', sharedPostId);
+                const sharedPostDoc = await transaction.get(sharedPostRef);
+                if (sharedPostDoc.exists()) {
+                    originalAuthorId = sharedPostDoc.data().authorId;
+                }
+            }
             
             // NOW PREPARE WRITES
             const newPostData = {
@@ -257,14 +269,11 @@ export default function UserProfilePage() {
             const postCollectionRef = collection(db, 'posts');
             transaction.set(doc(postCollectionRef), newPostData);
 
-            if (sharedPostDoc.exists()) {
-                const originalAuthorId = sharedPostDoc.data().authorId;
-                if (originalAuthorId && originalAuthorId !== currentUser.uid) {
-                    const currentUserRef = doc(db, 'users', currentUser.uid);
-                    const originalAuthorRef = doc(db, 'users', originalAuthorId);
-                    transaction.update(currentUserRef, { following: arrayUnion(originalAuthorId) });
-                    transaction.update(originalAuthorRef, { followers: arrayUnion(currentUser.uid) });
-                }
+            if (originalAuthorId && originalAuthorId !== currentUser.uid) {
+                const currentUserRef = doc(db, 'users', currentUser.uid);
+                const originalAuthorRef = doc(db, 'users', originalAuthorId);
+                transaction.update(currentUserRef, { following: arrayUnion(originalAuthorId) });
+                transaction.update(originalAuthorRef, { followers: arrayUnion(currentUser.uid) });
             }
         });
 
@@ -322,3 +331,4 @@ export default function UserProfilePage() {
       </div>
   );
 }
+

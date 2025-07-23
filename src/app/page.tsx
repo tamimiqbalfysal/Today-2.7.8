@@ -116,15 +116,21 @@ export default function TodayPage() {
 
                 const postData = postDoc.data();
                 const reactionField = reaction === 'like' ? 'likes' : 'laughs';
+                const oppositeReactionField = reaction === 'like' ? 'laughs' : 'likes';
                 const currentReactors: string[] = postData[reactionField] || [];
-                const isReacting = !currentReactors.includes(reactorId);
+                const oppositeReactors: string[] = postData[oppositeReactionField] || [];
                 
                 const updateData: { [key: string]: any } = {};
 
-                if (isReacting) {
-                    updateData[reactionField] = arrayUnion(reactorId);
-                } else {
+                // If user is in the opposite reaction array, remove them
+                if (oppositeReactors.includes(reactorId)) {
+                    updateData[oppositeReactionField] = arrayRemove(reactorId);
+                }
+
+                if (currentReactors.includes(reactorId)) {
                     updateData[reactionField] = arrayRemove(reactorId);
+                } else {
+                    updateData[reactionField] = arrayUnion(reactorId);
                 }
                 transaction.update(postRef, updateData);
             });
@@ -190,7 +196,8 @@ export default function TodayPage() {
       postType: 'original' | 'share' = 'original',
       sharedPostId?: string
     ) => {
-      if (!user || !db || (!content.trim() && !file && !contentBangla.trim() && !fileBangla && postType === 'original')) return;
+      if (!user || !db) return;
+      if (postType === 'original' && !content.trim() && !file && !contentBangla.trim() && !fileBangla) return;
   
       try {
         let mediaURL: string | undefined = undefined;
@@ -213,6 +220,19 @@ export default function TodayPage() {
         }
 
         await runTransaction(db, async (transaction) => {
+            const userDocRef = doc(db, 'users', user.uid);
+            const userDoc = await transaction.get(userDocRef);
+            if (!userDoc.exists()) throw "User does not exist!";
+
+            let originalAuthorId: string | undefined;
+            if (postType === 'share' && sharedPostId) {
+                const sharedPostRef = doc(db, 'posts', sharedPostId);
+                const sharedPostDoc = await transaction.get(sharedPostRef);
+                if (sharedPostDoc.exists()) {
+                    originalAuthorId = sharedPostDoc.data().authorId;
+                }
+            }
+            
             const newPostData: Omit<Post, 'id' | 'sharedPost'> = {
                 authorId: user.uid,
                 authorName: user.name,
@@ -234,35 +254,20 @@ export default function TodayPage() {
                 ...(postType === 'share' && sharedPostId && { sharedPostId }),
             };
 
-            const userDocRef = doc(db, 'users', user.uid);
-            const userDoc = await transaction.get(userDocRef);
-            if (!userDoc.exists()) throw "User does not exist!";
-
-            const currentCredits = userDoc.data().credits || 0;
-            if (currentCredits < defenceCredit) {
-                throw new Error("You do not have enough credits.");
-            }
-
             const postCollectionRef = collection(db, 'posts');
             transaction.set(doc(postCollectionRef), newPostData);
 
             if (postType === 'original') {
+                const currentCredits = userDoc.data().credits || 0;
+                if (currentCredits < defenceCredit) {
+                    throw new Error("You do not have enough credits.");
+                }
                 const creditChange = 10 - defenceCredit;
                 transaction.update(userDocRef, { credits: increment(creditChange) });
-            }
-
-            // If sharing, also follow the original author
-            if (postType === 'share' && sharedPostId) {
-                const sharedPostRef = doc(db, 'posts', sharedPostId);
-                const sharedPostDoc = await transaction.get(sharedPostRef);
-                if (sharedPostDoc.exists()) {
-                    const originalAuthorId = sharedPostDoc.data().authorId;
-                    if (originalAuthorId && originalAuthorId !== user.uid) {
-                        const originalAuthorRef = doc(db, 'users', originalAuthorId);
-                        transaction.update(userDocRef, { following: arrayUnion(originalAuthorId) });
-                        transaction.update(originalAuthorRef, { followers: arrayUnion(user.uid) });
-                    }
-                }
+            } else if (postType === 'share' && originalAuthorId && originalAuthorId !== user.uid) {
+                const originalAuthorRef = doc(db, 'users', originalAuthorId);
+                transaction.update(userDocRef, { following: arrayUnion(originalAuthorId) });
+                transaction.update(originalAuthorRef, { followers: arrayUnion(user.uid) });
             }
         });
   
@@ -508,3 +513,4 @@ export default function TodayPage() {
         </div>
   );
 }
+
