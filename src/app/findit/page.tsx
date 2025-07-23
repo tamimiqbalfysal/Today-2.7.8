@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -46,6 +46,8 @@ export default function FinditPage() {
     const [itemLocation, setItemLocation] = useState('');
     const [contactInfo, setContactInfo] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
+    const lostItemImageRef = useRef<HTMLInputElement>(null);
+    const foundItemImageRef = useRef<HTMLInputElement>(null);
 
     const filteredLostItems = lostItems.filter(item =>
         item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -181,7 +183,8 @@ export default function FinditPage() {
                                             </div >
                                             <div className="space-y-1">
                                                 <Label>Image (optional)</Label>
-                                                <Button type="button" variant="outline" className="w-full"><Upload className="mr-2 h-4 w-4" /> Upload Image</Button>
+                                                <Input type="file" ref={lostItemImageRef} className="hidden" accept="image/*" />
+                                                <Button type="button" variant="outline" className="w-full" onClick={() => lostItemImageRef.current?.click()}><Upload className="mr-2 h-4 w-4" /> Upload Image</Button>
                                             </div>
                                             <Button type="submit" className="w-full"><PlusCircle className="mr-2 h-4 w-4" /> Report Lost Item</Button>
                                         </form>
@@ -206,7 +209,8 @@ export default function FinditPage() {
                                             </div>
                                             <div className="space-y-1">
                                                 <Label>Image (optional)</Label>
-                                                <Button type="button" variant="outline" className="w-full"><Upload className="mr-2 h-4 w-4" /> Upload Image</Button>
+                                                <Input type="file" ref={foundItemImageRef} className="hidden" accept="image/*" />
+                                                <Button type="button" variant="outline" className="w-full" onClick={() => foundItemImageRef.current?.click()}><Upload className="mr-2 h-4 w-4" /> Upload Image</Button>
                                             </div>
                                             <Button type="submit" className="w-full"><PlusCircle className="mr-2 h-4 w-4" /> Report Found Item</Button>
                                         </form>
