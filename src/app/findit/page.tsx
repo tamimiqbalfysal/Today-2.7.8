@@ -1,50 +1,39 @@
 
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Search, Upload, X } from 'lucide-react';
+import { PlusCircle, Search, Upload, X, Trash2 } from 'lucide-react';
 import Image from 'next/image';
-import { storage } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/auth-context';
+import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, Timestamp, orderBy } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
 
-interface FoundItem {
-    id: number;
+interface FinditItem {
+    id: string;
     name: string;
     description: string;
-    foundLocation: string;
+    location: string;
     contact: string;
     imageUrl?: string;
+    imagePath?: string;
+    type: 'lost' | 'found';
+    authorId?: string;
+    timestamp: Timestamp;
 }
 
-interface LostItem {
-    id: number;
+interface ItemFormState {
     name: string;
     description: string;
-    lastSeen: string;
-    contact: string;
-    imageUrl?: string;
-}
-
-interface LostItemFormState {
-    name: string;
-    description: string;
-    lastSeen: string;
-    contact: string;
-    image: File | null;
-    imagePreview: string | null;
-}
-
-interface FoundItemFormState {
-    name: string;
-    description: string;
-    foundLocation: string;
+    location: string;
     contact: string;
     image: File | null;
     imagePreview: string | null;
@@ -52,36 +41,57 @@ interface FoundItemFormState {
 
 
 export default function FinditPage() {
-    const [lostItems, setLostItems] = useState<LostItem[]>([
-        { id: 1, name: 'iPhone 13 Pro', description: 'Blue iPhone in a clear case. Has a small crack on the top left corner.', lastSeen: 'Central Park, near the fountain', contact: 'jane.doe@email.com', imageUrl: 'https://placehold.co/300x200.png' },
-        { id: 2, name: 'Keys with a red fob', description: 'Set of three keys on a silver ring with a red plastic fob.', lastSeen: 'Subway, Line 2', contact: 'contact@findit.com', imageUrl: 'https://placehold.co/300x200.png' },
-    ]);
-    const [foundItems, setFoundItems] = useState<FoundItem[]>([
-        { id: 1, name: 'Black Leather Wallet', description: 'Contains various cards but no cash. ID for John Smith inside.', foundLocation: 'Main Street Library', contact: 'library.found@email.com', imageUrl: 'https://placehold.co/300x200.png' },
-        { id: 2, name: 'A single earring', description: 'Small, silver hoop earring. Found on the floor near the checkout.', foundLocation: 'Supermarket on 5th Ave', contact: 'supermarket.manager@email.com', imageUrl: 'https://placehold.co/300x200.png' },
-    ]);
+    const { user } = useAuth();
+    const [allItems, setAllItems] = useState<FinditItem[]>([]);
+    const [userItems, setUserItems] = useState<FinditItem[]>([]);
 
-    const [lostForm, setLostForm] = useState<LostItemFormState>({ name: '', description: '', lastSeen: '', contact: '', image: null, imagePreview: null });
-    const [foundForm, setFoundForm] = useState<FoundItemFormState>({ name: '', description: '', foundLocation: '', contact: '', image: null, imagePreview: null });
+    const [lostForm, setLostForm] = useState<ItemFormState>({ name: '', description: '', location: '', contact: '', image: null, imagePreview: null });
+    const [foundForm, setFoundForm] = useState<ItemFormState>({ name: '', description: '', location: '', contact: '', image: null, imagePreview: null });
 
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('lost-and-found');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
 
     const lostItemImageRef = useRef<HTMLInputElement>(null);
     const foundItemImageRef = useRef<HTMLInputElement>(null);
 
-    const filteredLostItems = lostItems.filter(item =>
-        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.description.toLowerCase().includes(searchTerm.toLowerCase())
+    useEffect(() => {
+        if (!db) return;
+        setIsLoading(true);
+        const q = query(collection(db, "finditItems"), orderBy("timestamp", "desc"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FinditItem));
+            setAllItems(items);
+            setIsLoading(false);
+        });
+        return () => unsubscribe();
+    }, []);
+
+    useEffect(() => {
+        if (!db || !user) {
+            setUserItems([]);
+            return;
+        };
+        const q = query(collection(db, "finditItems"), where("authorId", "==", user.uid), orderBy("timestamp", "desc"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FinditItem));
+            setUserItems(items);
+        });
+        return () => unsubscribe();
+    }, [user]);
+
+    const filteredLostItems = allItems.filter(item =>
+        item.type === 'lost' && (item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.description.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
-    const filteredFoundItems = foundItems.filter(item =>
-        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.description.toLowerCase().includes(searchTerm.toLowerCase())
+    const filteredFoundItems = allItems.filter(item =>
+        item.type === 'found' && (item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.description.toLowerCase().includes(searchTerm.toLowerCase()))
     );
-
+    
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'lost' | 'found') => {
         const file = e.target.files?.[0];
         if (file) {
@@ -103,88 +113,109 @@ export default function FinditPage() {
             if (foundItemImageRef.current) foundItemImageRef.current.value = '';
         }
     };
-    
-    const handleLostReportSubmit = async (e: React.FormEvent) => {
+
+    const handleReportSubmit = async (e: React.FormEvent, type: 'lost' | 'found') => {
         e.preventDefault();
         setIsSubmitting(true);
-        let imageUrl = lostForm.imagePreview || 'https://placehold.co/300x200.png';
+        
+        const form = type === 'lost' ? lostForm : foundForm;
+        const setForm = type === 'lost' ? setLostForm : setFoundForm;
+        const imageInputRef = type === 'lost' ? lostItemImageRef : foundItemImageRef;
 
-        if (lostForm.image && storage) {
+        let imageUrl, imagePath;
+
+        if (form.image && storage) {
             try {
-                const imageRef = ref(storage, `findit/lost/${Date.now()}_${lostForm.image.name}`);
-                const snapshot = await uploadBytes(imageRef, lostForm.image);
+                const filePath = `findit/${user?.uid || 'anonymous'}/${Date.now()}_${form.image.name}`;
+                const imageRef = ref(storage, filePath);
+                const snapshot = await uploadBytes(imageRef, form.image);
                 imageUrl = await getDownloadURL(snapshot.ref);
+                imagePath = filePath;
             } catch (error: any) {
-                console.error("Error uploading image: ", error);
                 let description = "Could not upload your image. Please try again.";
                 if (error.code === 'storage/unauthorized') {
-                    description = "Permission denied. Check your Firebase Storage rules to allow uploads.";
+                    description = "Permission Denied. Your Firebase Storage rules are not configured to allow uploads. Please update them in the Firebase Console.";
                 }
-                toast({
-                    variant: "destructive",
-                    title: "Image Upload Failed",
-                    description: description,
-                });
+                toast({ variant: "destructive", title: "Image Upload Failed", description, duration: 10000 });
                 setIsSubmitting(false);
                 return;
             }
         }
 
-        const newLostItem: LostItem = {
-            id: Date.now(),
-            name: lostForm.name,
-            description: lostForm.description,
-            lastSeen: lostForm.lastSeen,
-            contact: lostForm.contact,
-            imageUrl: imageUrl
+        const newItem: Omit<FinditItem, 'id' | 'timestamp'> = {
+            name: form.name,
+            description: form.description,
+            location: form.location,
+            contact: form.contact,
+            type: type,
+            ...(imageUrl && { imageUrl }),
+            ...(imagePath && { imagePath }),
+            ...(user && { authorId: user.uid }),
         };
-        setLostItems(prev => [newLostItem, ...prev]);
-        setLostForm({ name: '', description: '', lastSeen: '', contact: '', image: null, imagePreview: null });
-        if (lostItemImageRef.current) lostItemImageRef.current.value = '';
-        setActiveTab('lost-and-found');
-        setIsSubmitting(false);
-    }
+        
+        try {
+            if (!db) throw new Error("Database not connected");
+            await addDoc(collection(db, "finditItems"), {
+                ...newItem,
+                timestamp: Timestamp.now(),
+            });
+
+            toast({ title: 'Success', description: `Your ${type} item has been reported.` });
+            setForm({ name: '', description: '', location: '', contact: '', image: null, imagePreview: null });
+            if (imageInputRef.current) imageInputRef.current.value = '';
+            setActiveTab('lost-and-found');
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not report item.' });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
     
-    const handleFoundReportSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsSubmitting(true);
-        let imageUrl = foundForm.imagePreview || 'https://placehold.co/300x200.png';
-
-        if (foundForm.image && storage) {
-             try {
-                const imageRef = ref(storage, `findit/found/${Date.now()}_${foundForm.image.name}`);
-                const snapshot = await uploadBytes(imageRef, foundForm.image);
-                imageUrl = await getDownloadURL(snapshot.ref);
-            } catch (error: any) {
-                console.error("Error uploading image: ", error);
-                let description = "Could not upload your image. Please try again.";
-                if (error.code === 'storage/unauthorized') {
-                    description = "Permission denied. Check your Firebase Storage rules to allow uploads.";
-                }
-                toast({
-                    variant: "destructive",
-                    title: "Image Upload Failed",
-                    description: description,
-                });
-                setIsSubmitting(false);
-                return;
+    const handleDeleteItem = async (item: FinditItem) => {
+        if (!db) return;
+        try {
+            await deleteDoc(doc(db, "finditItems", item.id));
+            if (item.imagePath && storage) {
+                const imageRef = ref(storage, item.imagePath);
+                await deleteObject(imageRef);
             }
+            toast({ title: "Deleted", description: "Your report has been removed."});
+        } catch (error) {
+             toast({ variant: "destructive", title: "Error", description: "Could not delete the item."});
         }
+    };
 
-        const newFoundItem: FoundItem = {
-            id: Date.now(),
-            name: foundForm.name,
-            description: foundForm.description,
-            foundLocation: foundForm.foundLocation,
-            contact: foundForm.contact,
-            imageUrl: imageUrl
-        };
-        setFoundItems(prev => [newFoundItem, ...prev]);
-        setFoundForm({ name: '', description: '', foundLocation: '', contact: '', image: null, imagePreview: null });
-        if (foundItemImageRef.current) foundItemImageRef.current.value = '';
-        setActiveTab('lost-and-found');
-        setIsSubmitting(false);
-    }
+    const ItemCard = ({ item, onDelete }: { item: FinditItem; onDelete?: (item: FinditItem) => void }) => (
+        <Card className="overflow-hidden relative">
+            <div className="relative w-full h-40">
+                <Image src={item.imageUrl || 'https://placehold.co/300x200.png'} alt={item.name} layout="fill" objectFit="cover" />
+            </div>
+            <CardHeader>
+                <CardTitle>{item.name}</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p className="text-sm text-muted-foreground">{item.description}</p>
+                <p className="text-sm mt-2">
+                    <strong>{item.type === 'lost' ? 'Last seen:' : 'Found at:'}</strong> {item.location}
+                </p>
+            </CardContent>
+            <CardFooter>
+                <Button className="w-full">
+                    {item.type === 'lost' ? 'Contact Owner' : 'Claim Item'}
+                </Button>
+            </CardFooter>
+            {onDelete && (
+                <Button 
+                    variant="destructive" 
+                    size="icon" 
+                    className="absolute top-2 right-2"
+                    onClick={() => onDelete(item)}
+                >
+                    <Trash2 className="h-4 w-4" />
+                </Button>
+            )}
+        </Card>
+    );
 
   return (
       <div className="theme-findit flex flex-col h-screen bg-background">
@@ -219,52 +250,33 @@ export default function FinditPage() {
                                 />
                             </div>
                         </div>
-                        <div className="grid md:grid-cols-2 gap-8 mt-6">
-                            <div>
-                                <h2 className="text-2xl font-bold mb-4 text-center">Lost Items</h2>
+                        {isLoading ? (
+                             <div className="grid md:grid-cols-2 gap-8 mt-6">
                                 <div className="space-y-4">
-                                    {filteredLostItems.map(item => (
-                                        <Card key={item.id} className="overflow-hidden">
-                                            <div className="relative w-full h-40">
-                                                <Image src={item.imageUrl || 'https://placehold.co/300x200.png'} alt={item.name} layout="fill" objectFit="cover" />
-                                            </div>
-                                            <CardHeader>
-                                                <CardTitle>{item.name}</CardTitle>
-                                            </CardHeader>
-                                            <CardContent>
-                                                <p className="text-sm text-muted-foreground">{item.description}</p>
-                                                <p className="text-sm mt-2"><strong>Last seen:</strong> {item.lastSeen}</p>
-                                            </CardContent>
-                                            <CardFooter>
-                                                <Button className="w-full">Contact Owner</Button>
-                                            </CardFooter>
-                                        </Card>
-                                    ))}
+                                    <Skeleton className="h-96 w-full" />
+                                    <Skeleton className="h-96 w-full" />
+                                </div>
+                                <div className="space-y-4">
+                                    <Skeleton className="h-96 w-full" />
+                                    <Skeleton className="h-96 w-full" />
+                                </div>
+                             </div>
+                        ) : (
+                            <div className="grid md:grid-cols-2 gap-8 mt-6">
+                                <div>
+                                    <h2 className="text-2xl font-bold mb-4 text-center">Lost Items</h2>
+                                    <div className="space-y-4">
+                                        {filteredLostItems.map(item => <ItemCard key={item.id} item={item} />)}
+                                    </div>
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-bold mb-4 text-center">Found Items</h2>
+                                    <div className="space-y-4">
+                                        {filteredFoundItems.map(item => <ItemCard key={item.id} item={item} />)}
+                                    </div>
                                 </div>
                             </div>
-                            <div>
-                                <h2 className="text-2xl font-bold mb-4 text-center">Found Items</h2>
-                                <div className="space-y-4">
-                                     {filteredFoundItems.map(item => (
-                                        <Card key={item.id} className="overflow-hidden">
-                                            <div className="relative w-full h-40">
-                                                <Image src={item.imageUrl || 'https://placehold.co/300x200.png'} alt={item.name} layout="fill" objectFit="cover" />
-                                            </div>
-                                            <CardHeader>
-                                                <CardTitle>{item.name}</CardTitle>
-                                            </CardHeader>
-                                            <CardContent>
-                                                <p className="text-sm text-muted-foreground">{item.description}</p>
-                                                <p className="text-sm mt-2"><strong>Found at:</strong> {item.foundLocation}</p>
-                                            </CardContent>
-                                            <CardFooter>
-                                                <Button className="w-full">Claim Item</Button>
-                                            </CardFooter>
-                                        </Card>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
+                        )}
                     </TabsContent>
                     <TabsContent value="report-item">
                         <Card className="max-w-2xl mx-auto mt-6">
@@ -275,7 +287,7 @@ export default function FinditPage() {
                                         <TabsTrigger value="report-found">I Found Something</TabsTrigger>
                                     </TabsList>
                                     <TabsContent value="report-lost" className="p-6">
-                                        <form className="space-y-4" onSubmit={handleLostReportSubmit}>
+                                        <form className="space-y-4" onSubmit={(e) => handleReportSubmit(e, 'lost')}>
                                             <div className="space-y-1">
                                                 <Label htmlFor="lost-item-name">Item Name</Label>
                                                 <Input id="lost-item-name" placeholder="e.g., Black Leather Wallet" value={lostForm.name} onChange={e => setLostForm(prev => ({ ...prev, name: e.target.value }))} disabled={isSubmitting} />
@@ -286,7 +298,7 @@ export default function FinditPage() {
                                             </div>
                                             <div className="space-y-1">
                                                 <Label htmlFor="lost-item-loc">Last Seen Location</Label>
-                                                <Input id="lost-item-loc" placeholder="e.g., Central Park, near the fountain" value={lostForm.lastSeen} onChange={e => setLostForm(prev => ({ ...prev, lastSeen: e.target.value }))} disabled={isSubmitting} />
+                                                <Input id="lost-item-loc" placeholder="e.g., Central Park, near the fountain" value={lostForm.location} onChange={e => setLostForm(prev => ({ ...prev, location: e.target.value }))} disabled={isSubmitting} />
                                             </div>
                                             <div className="space-y-1">
                                                 <Label htmlFor="lost-contact">Contact Info</Label>
@@ -312,7 +324,7 @@ export default function FinditPage() {
                                         </form>
                                     </TabsContent>
                                     <TabsContent value="report-found" className="p-6">
-                                         <form className="space-y-4" onSubmit={handleFoundReportSubmit}>
+                                         <form className="space-y-4" onSubmit={(e) => handleReportSubmit(e, 'found')}>
                                             <div className="space-y-1">
                                                 <Label htmlFor="found-item-name">Item Name</Label>
                                                 <Input id="found-item-name" placeholder="e.g., Set of keys" value={foundForm.name} onChange={e => setFoundForm(prev => ({ ...prev, name: e.target.value }))} disabled={isSubmitting} />
@@ -323,7 +335,7 @@ export default function FinditPage() {
                                             </div>
                                             <div className="space-y-1">
                                                 <Label htmlFor="found-item-loc">Location Found</Label>
-                                                <Input id="found-item-loc" placeholder="e.g., On the bench at 5th Ave & Main St" value={foundForm.foundLocation} onChange={e => setFoundForm(prev => ({ ...prev, foundLocation: e.target.value }))} disabled={isSubmitting} />
+                                                <Input id="found-item-loc" placeholder="e.g., On the bench at 5th Ave & Main St" value={foundForm.location} onChange={e => setFoundForm(prev => ({ ...prev, location: e.target.value }))} disabled={isSubmitting} />
                                             </div>
                                              <div className="space-y-1">
                                                 <Label htmlFor="found-contact">Your Contact Info</Label>
@@ -351,6 +363,23 @@ export default function FinditPage() {
                                 </Tabs>
                             </CardContent>
                         </Card>
+                        {user && (
+                            <Card className="max-w-2xl mx-auto mt-6">
+                                <CardHeader>
+                                    <CardTitle>Your Reported Items</CardTitle>
+                                    <CardDescription>Items you have reported as lost or found.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    {userItems.length > 0 ? (
+                                        <div className="space-y-4">
+                                            {userItems.map(item => <ItemCard key={item.id} item={item} onDelete={handleDeleteItem} />)}
+                                        </div>
+                                    ) : (
+                                        <p className="text-muted-foreground text-center">You have not reported any items.</p>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        )}
                     </TabsContent>
                 </Tabs>
             </div>
