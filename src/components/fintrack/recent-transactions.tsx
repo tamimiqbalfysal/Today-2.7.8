@@ -234,7 +234,7 @@ function PostCard({ post: initialPost, currentUser, onDelete, onMakePostPrivate,
 
     const hasEnglishContent = post.content || post.mediaURL;
     const hasBanglaContent = post.contentBangla || post.mediaURLBangla;
-    const hasMultipleSlides = hasEnglishContent && hasBanglaContent;
+    const hasMultipleSlides = hasEnglishContent && (hasBanglaContent || post.sharedPost);
 
     const defenceCreditValue = post.defenceCredit || 0;
     const lastOffenceCreditValue = post.offenceCredit || 0;
@@ -358,11 +358,11 @@ function PostCard({ post: initialPost, currentUser, onDelete, onMakePostPrivate,
                     </p>
                 </div>
                  
-                {(hasEnglishContent || hasBanglaContent) && (
+                {(hasEnglishContent || hasBanglaContent || post.sharedPost) && (
                     <div className="mb-4">
                         <Carousel setApi={setCarouselApi} className="w-full">
                             <CarouselContent>
-                                {hasEnglishContent && (
+                                {(hasEnglishContent || post.type === 'share') && (
                                     <CarouselItem>
                                         <div className="space-y-4">
                                             {post.content && <p className="font-sans text-card-foreground text-lg whitespace-pre-wrap">{post.content}</p>}
@@ -371,6 +371,9 @@ function PostCard({ post: initialPost, currentUser, onDelete, onMakePostPrivate,
                                                     {post.mediaType === 'image' && <Image src={post.mediaURL} alt="Post media" layout="fill" objectFit="cover" />}
                                                     {post.mediaType === 'video' && <video src={post.mediaURL} controls className="w-full h-full object-cover bg-black" />}
                                                 </div>
+                                            )}
+                                            {post.type === 'share' && post.sharedPost && (
+                                                <OriginalPostCard post={post.sharedPost} />
                                             )}
                                         </div>
                                     </CarouselItem>
@@ -400,10 +403,7 @@ function PostCard({ post: initialPost, currentUser, onDelete, onMakePostPrivate,
                 )}
 
 
-                {post.type === 'share' && post.sharedPost && (
-                    <OriginalPostCard post={post.sharedPost} />
-                )}
-                 {isSharedPostLoading && (
+                {isSharedPostLoading && (
                     <div className="border rounded-lg p-4 mt-4 space-y-4">
                         <div className="flex items-center space-x-4">
                             <Skeleton className="w-10 h-10 rounded-full" />
@@ -643,3 +643,4 @@ export function PostFeed({ posts, currentUser, onDeletePost, onMakePostPrivate, 
     </div>
   );
 }
+

@@ -223,13 +223,15 @@ export default function TodayPage() {
             const userDocRef = doc(db, 'users', user.uid);
             const userDoc = await transaction.get(userDocRef);
             if (!userDoc.exists()) throw "User does not exist!";
-
+            
             let originalAuthorId: string | undefined;
+            let originalPostColor: string | undefined;
             if (postType === 'share' && sharedPostId) {
                 const sharedPostRef = doc(db, 'posts', sharedPostId);
                 const sharedPostDoc = await transaction.get(sharedPostRef);
                 if (sharedPostDoc.exists()) {
                     originalAuthorId = sharedPostDoc.data().authorId;
+                    originalPostColor = sharedPostDoc.data().localColor;
                 }
             }
             
@@ -250,7 +252,7 @@ export default function TodayPage() {
                 ...(mediaURLBangla && { mediaURLBangla }),
                 ...(mediaTypeBangla && { mediaTypeBangla }),
                 ...(defenceCredit > 0 && { defenceCredit }),
-                ...(localColor && { localColor }),
+                localColor: postType === 'share' ? originalPostColor : localColor,
                 ...(postType === 'share' && sharedPostId && { sharedPostId }),
             };
 
@@ -513,4 +515,3 @@ export default function TodayPage() {
         </div>
   );
 }
-
