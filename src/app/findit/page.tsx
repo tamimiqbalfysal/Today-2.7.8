@@ -3,7 +3,6 @@
 
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,6 +10,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PlusCircle, Search, Upload, X } from 'lucide-react';
 import Image from 'next/image';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { useToast } from '@/hooks/use-toast';
 
 interface FoundItem {
     id: number;
@@ -64,6 +66,8 @@ export default function FinditPage() {
 
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('lost-and-found');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const { toast } = useToast();
 
     const lostItemImageRef = useRef<HTMLInputElement>(null);
     const foundItemImageRef = useRef<HTMLInputElement>(null);
@@ -100,36 +104,78 @@ export default function FinditPage() {
         }
     };
     
-    const handleLostReportSubmit = (e: React.FormEvent) => {
+    const handleLostReportSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setIsSubmitting(true);
+        let imageUrl = 'https://placehold.co/300x200.png';
+
+        if (lostForm.image && storage) {
+            try {
+                const imageRef = ref(storage, `findit/lost/${Date.now()}_${lostForm.image.name}`);
+                const snapshot = await uploadBytes(imageRef, lostForm.image);
+                imageUrl = await getDownloadURL(snapshot.ref);
+            } catch (error) {
+                console.error("Error uploading image: ", error);
+                toast({
+                    variant: "destructive",
+                    title: "Image Upload Failed",
+                    description: "Could not upload your image. Please try again.",
+                });
+                setIsSubmitting(false);
+                return;
+            }
+        }
+
         const newLostItem: LostItem = {
             id: Date.now(),
             name: lostForm.name,
             description: lostForm.description,
             lastSeen: lostForm.lastSeen,
             contact: lostForm.contact,
-            imageUrl: lostForm.imagePreview || 'https://placehold.co/300x200.png'
+            imageUrl: imageUrl
         };
         setLostItems(prev => [newLostItem, ...prev]);
         setLostForm({ name: '', description: '', lastSeen: '', contact: '', image: null, imagePreview: null });
         if (lostItemImageRef.current) lostItemImageRef.current.value = '';
         setActiveTab('lost-and-found');
+        setIsSubmitting(false);
     }
     
-    const handleFoundReportSubmit = (e: React.FormEvent) => {
+    const handleFoundReportSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setIsSubmitting(true);
+        let imageUrl = 'https://placehold.co/300x200.png';
+
+        if (foundForm.image && storage) {
+             try {
+                const imageRef = ref(storage, `findit/found/${Date.now()}_${foundForm.image.name}`);
+                const snapshot = await uploadBytes(imageRef, foundForm.image);
+                imageUrl = await getDownloadURL(snapshot.ref);
+            } catch (error) {
+                console.error("Error uploading image: ", error);
+                 toast({
+                    variant: "destructive",
+                    title: "Image Upload Failed",
+                    description: "Could not upload your image. Please try again.",
+                });
+                setIsSubmitting(false);
+                return;
+            }
+        }
+
         const newFoundItem: FoundItem = {
             id: Date.now(),
             name: foundForm.name,
             description: foundForm.description,
             foundLocation: foundForm.foundLocation,
             contact: foundForm.contact,
-            imageUrl: foundForm.imagePreview || 'https://placehold.co/300x200.png'
+            imageUrl: imageUrl
         };
         setFoundItems(prev => [newFoundItem, ...prev]);
         setFoundForm({ name: '', description: '', foundLocation: '', contact: '', image: null, imagePreview: null });
         if (foundItemImageRef.current) foundItemImageRef.current.value = '';
         setActiveTab('lost-and-found');
+        setIsSubmitting(false);
     }
 
   return (
@@ -171,7 +217,9 @@ export default function FinditPage() {
                                 <div className="space-y-4">
                                     {filteredLostItems.map(item => (
                                         <Card key={item.id} className="overflow-hidden">
-                                            {item.imageUrl && <img src={item.imageUrl} alt={item.name} className="w-full h-40 object-cover" />}
+                                            <div className="relative w-full h-40">
+                                                <Image src={item.imageUrl || 'https://placehold.co/300x200.png'} alt={item.name} layout="fill" objectFit="cover" />
+                                            </div>
                                             <CardHeader>
                                                 <CardTitle>{item.name}</CardTitle>
                                             </CardHeader>
@@ -191,7 +239,9 @@ export default function FinditPage() {
                                 <div className="space-y-4">
                                      {filteredFoundItems.map(item => (
                                         <Card key={item.id} className="overflow-hidden">
-                                            {item.imageUrl && <img src={item.imageUrl} alt={item.name} className="w-full h-40 object-cover" />}
+                                            <div className="relative w-full h-40">
+                                                <Image src={item.imageUrl || 'https://placehold.co/300x200.png'} alt={item.name} layout="fill" objectFit="cover" />
+                                            </div>
                                             <CardHeader>
                                                 <CardTitle>{item.name}</CardTitle>
                                             </CardHeader>
@@ -220,70 +270,74 @@ export default function FinditPage() {
                                         <form className="space-y-4" onSubmit={handleLostReportSubmit}>
                                             <div className="space-y-1">
                                                 <Label htmlFor="lost-item-name">Item Name</Label>
-                                                <Input id="lost-item-name" placeholder="e.g., Black Leather Wallet" value={lostForm.name} onChange={e => setLostForm(prev => ({ ...prev, name: e.target.value }))} />
+                                                <Input id="lost-item-name" placeholder="e.g., Black Leather Wallet" value={lostForm.name} onChange={e => setLostForm(prev => ({ ...prev, name: e.target.value }))} disabled={isSubmitting} />
                                             </div>
                                             <div className="space-y-1">
                                                 <Label htmlFor="lost-item-desc">Description</Label>
-                                                <Textarea id="lost-item-desc" placeholder="Provide details like color, brand, or any identifying marks." value={lostForm.description} onChange={e => setLostForm(prev => ({ ...prev, description: e.target.value }))} />
+                                                <Textarea id="lost-item-desc" placeholder="Provide details like color, brand, or any identifying marks." value={lostForm.description} onChange={e => setLostForm(prev => ({ ...prev, description: e.target.value }))} disabled={isSubmitting} />
                                             </div>
                                             <div className="space-y-1">
                                                 <Label htmlFor="lost-item-loc">Last Seen Location</Label>
-                                                <Input id="lost-item-loc" placeholder="e.g., Central Park, near the fountain" value={lostForm.lastSeen} onChange={e => setLostForm(prev => ({ ...prev, lastSeen: e.target.value }))} />
+                                                <Input id="lost-item-loc" placeholder="e.g., Central Park, near the fountain" value={lostForm.lastSeen} onChange={e => setLostForm(prev => ({ ...prev, lastSeen: e.target.value }))} disabled={isSubmitting} />
                                             </div>
                                             <div className="space-y-1">
                                                 <Label htmlFor="lost-contact">Contact Info</Label>
-                                                <Input id="lost-contact" type="email" placeholder="your.email@example.com" value={lostForm.contact} onChange={e => setLostForm(prev => ({ ...prev, contact: e.target.value }))} />
+                                                <Input id="lost-contact" type="email" placeholder="your.email@example.com" value={lostForm.contact} onChange={e => setLostForm(prev => ({ ...prev, contact: e.target.value }))} disabled={isSubmitting} />
                                             </div >
                                             <div className="space-y-1">
                                                 <Label>Image (optional)</Label>
-                                                <Input type="file" ref={lostItemImageRef} onChange={(e) => handleImageChange(e, 'lost')} className="hidden" accept="image/*" />
+                                                <Input type="file" ref={lostItemImageRef} onChange={(e) => handleImageChange(e, 'lost')} className="hidden" accept="image/*" disabled={isSubmitting} />
                                                 {lostForm.imagePreview ? (
                                                     <div className="relative w-full h-40 rounded-md border">
                                                         <Image src={lostForm.imagePreview} alt="Preview" layout="fill" objectFit="contain" />
-                                                        <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2 h-6 w-6 rounded-full" onClick={() => handleRemoveImage('lost')}>
+                                                        <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2 h-6 w-6 rounded-full" onClick={() => handleRemoveImage('lost')} disabled={isSubmitting}>
                                                             <X className="h-4 w-4" />
                                                         </Button>
                                                     </div>
                                                 ) : (
-                                                    <Button type="button" variant="outline" className="w-full" onClick={() => lostItemImageRef.current?.click()}><Upload className="mr-2 h-4 w-4" /> Upload Image</Button>
+                                                    <Button type="button" variant="outline" className="w-full" onClick={() => lostItemImageRef.current?.click()} disabled={isSubmitting}><Upload className="mr-2 h-4 w-4" /> Upload Image</Button>
                                                 )}
                                             </div>
-                                            <Button type="submit" className="w-full"><PlusCircle className="mr-2 h-4 w-4" /> Report Lost Item</Button>
+                                            <Button type="submit" className="w-full" disabled={isSubmitting}>
+                                                {isSubmitting ? "Submitting..." : <><PlusCircle className="mr-2 h-4 w-4" /> Report Lost Item</>}
+                                            </Button>
                                         </form>
                                     </TabsContent>
                                     <TabsContent value="report-found" className="p-6">
                                          <form className="space-y-4" onSubmit={handleFoundReportSubmit}>
                                             <div className="space-y-1">
                                                 <Label htmlFor="found-item-name">Item Name</Label>
-                                                <Input id="found-item-name" placeholder="e.g., Set of keys" value={foundForm.name} onChange={e => setFoundForm(prev => ({ ...prev, name: e.target.value }))} />
+                                                <Input id="found-item-name" placeholder="e.g., Set of keys" value={foundForm.name} onChange={e => setFoundForm(prev => ({ ...prev, name: e.target.value }))} disabled={isSubmitting} />
                                             </div>
                                             <div className="space-y-1">
                                                 <Label htmlFor="found-item-desc">Description</Label>
-                                                <Textarea id="found-item-desc" placeholder="Describe the item you found." value={foundForm.description} onChange={e => setFoundForm(prev => ({ ...prev, description: e.target.value }))} />
+                                                <Textarea id="found-item-desc" placeholder="Describe the item you found." value={foundForm.description} onChange={e => setFoundForm(prev => ({ ...prev, description: e.target.value }))} disabled={isSubmitting} />
                                             </div>
                                             <div className="space-y-1">
                                                 <Label htmlFor="found-item-loc">Location Found</Label>
-                                                <Input id="found-item-loc" placeholder="e.g., On the bench at 5th Ave & Main St" value={foundForm.foundLocation} onChange={e => setFoundForm(prev => ({ ...prev, foundLocation: e.target.value }))} />
+                                                <Input id="found-item-loc" placeholder="e.g., On the bench at 5th Ave & Main St" value={foundForm.foundLocation} onChange={e => setFoundForm(prev => ({ ...prev, foundLocation: e.target.value }))} disabled={isSubmitting} />
                                             </div>
                                              <div className="space-y-1">
                                                 <Label htmlFor="found-contact">Your Contact Info</Label>
-                                                <Input id="found-contact" type="email" placeholder="your.email@example.com" value={foundForm.contact} onChange={e => setFoundForm(prev => ({ ...prev, contact: e.target.value }))} />
+                                                <Input id="found-contact" type="email" placeholder="your.email@example.com" value={foundForm.contact} onChange={e => setFoundForm(prev => ({ ...prev, contact: e.target.value }))} disabled={isSubmitting} />
                                             </div>
                                             <div className="space-y-1">
                                                 <Label>Image (optional)</Label>
-                                                <Input type="file" ref={foundItemImageRef} onChange={(e) => handleImageChange(e, 'found')} className="hidden" accept="image/*" />
+                                                <Input type="file" ref={foundItemImageRef} onChange={(e) => handleImageChange(e, 'found')} className="hidden" accept="image/*" disabled={isSubmitting} />
                                                 {foundForm.imagePreview ? (
                                                     <div className="relative w-full h-40 rounded-md border">
                                                         <Image src={foundForm.imagePreview} alt="Preview" layout="fill" objectFit="contain" />
-                                                        <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2 h-6 w-6 rounded-full" onClick={() => handleRemoveImage('found')}>
+                                                        <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2 h-6 w-6 rounded-full" onClick={() => handleRemoveImage('found')} disabled={isSubmitting}>
                                                             <X className="h-4 w-4" />
                                                         </Button>
                                                     </div>
                                                 ) : (
-                                                    <Button type="button" variant="outline" className="w-full" onClick={() => foundItemImageRef.current?.click()}><Upload className="mr-2 h-4 w-4" /> Upload Image</Button>
+                                                    <Button type="button" variant="outline" className="w-full" onClick={() => foundItemImageRef.current?.click()} disabled={isSubmitting}><Upload className="mr-2 h-4 w-4" /> Upload Image</Button>
                                                 )}
                                             </div>
-                                            <Button type="submit" className="w-full"><PlusCircle className="mr-2 h-4 w-4" /> Report Found Item</Button>
+                                            <Button type="submit" className="w-full" disabled={isSubmitting}>
+                                                {isSubmitting ? "Submitting..." : <><PlusCircle className="mr-2 h-4 w-4" /> Report Found Item</>}
+                                            </Button>
                                         </form>
                                     </TabsContent>
                                 </Tabs>
