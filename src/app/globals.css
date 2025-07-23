@@ -86,24 +86,24 @@
   }
   
   .theme-findit {
-    --background: 240 6% 10%;
-    --foreground: 210 40% 98%;
-    --card: 240 6% 12%;
-    --card-foreground: 210 40% 98%;
-    --popover: 240 6% 10%;
-    --popover-foreground: 210 40% 98%;
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 96%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
     --primary: 84 100% 50%; /* Vibrant Green */
     --primary-foreground: 240 6% 10%;
-    --secondary: 240 6% 18%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 240 6% 18%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 0 0% 96.1%;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 210 40% 98%;
-    --accent-foreground: 240 6% 10%;
-    --destructive: 0 62.8% 30.6%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 240 6% 18%;
-    --input: 240 6% 18%;
+    --border: 214 31.8% 91.4%;
+    --input: 214 31.8% 91.4%;
     --ring: 84 100% 50%;
   }
 }
