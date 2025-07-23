@@ -1,11 +1,11 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, addDoc, orderBy, serverTimestamp, doc, getDoc, setDoc, limit } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, orderBy, serverTimestamp, doc, getDoc, setDoc, limit, Unsubscribe } from 'firebase/firestore';
 import type { Message, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,26 +37,61 @@ export default function ChatPage() {
     };
     fetchOtherUser();
   }, [otherUserId]);
+  
+  const getChatId = useCallback(() => {
+    if (!currentUser || !otherUserId) return null;
+    return [currentUser.uid, otherUserId].sort().join('_');
+  }, [currentUser, otherUserId]);
 
   useEffect(() => {
     if (!currentUser || !otherUserId || !db) return;
 
-    const getChatId = () => {
-      return [currentUser.uid, otherUserId].sort().join('_');
-    };
     const currentChatId = getChatId();
+    if (!currentChatId) return;
+
     setChatId(currentChatId);
 
-    const messagesRef = collection(db, 'chats', currentChatId, 'messages');
-    const q = query(messagesRef, orderBy('timestamp', 'asc'));
+    let unsubscribe: Unsubscribe | null = null;
+    
+    const setupListener = async () => {
+        const chatRef = doc(db, 'chats', currentChatId);
+        const chatSnap = await getDoc(chatRef);
+        
+        if (!chatSnap.exists()) {
+            try {
+                // Preemptively create the chat document so the listener doesn't fail.
+                 await setDoc(chatRef, {
+                    participants: [currentUser.uid, otherUserId],
+                    participantDetails: {
+                      [currentUser.uid]: { name: currentUser.name, photoURL: currentUser.photoURL },
+                      [otherUserId]: { name: otherUser?.name, photoURL: otherUser?.photoURL },
+                    }
+                });
+            } catch(error) {
+                console.error("Failed to create chat document", error);
+                return; // Don't setup listener if chat doc creation fails
+            }
+        }
+        
+        const messagesRef = collection(db, 'chats', currentChatId, 'messages');
+        const q = query(messagesRef, orderBy('timestamp', 'asc'));
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const msgs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
-      setMessages(msgs);
-    });
+        unsubscribe = onSnapshot(q, (querySnapshot) => {
+          const msgs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+          setMessages(msgs);
+        }, (error) => {
+            console.error("Error in snapshot listener:", error);
+        });
+    }
 
-    return () => unsubscribe();
-  }, [currentUser, otherUserId]);
+    setupListener();
+
+    return () => {
+        if (unsubscribe) {
+            unsubscribe();
+        }
+    };
+  }, [currentUser, otherUserId, otherUser, getChatId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -66,19 +101,6 @@ export default function ChatPage() {
     e.preventDefault();
     if (!newMessage.trim() || !chatId || !currentUser) return;
     
-    const chatRef = doc(db, 'chats', chatId);
-    const chatSnap = await getDoc(chatRef);
-    
-    if(!chatSnap.exists()){
-      await setDoc(chatRef, {
-        participants: [currentUser.uid, otherUserId],
-        participantDetails: {
-          [currentUser.uid]: { name: currentUser.name, photoURL: currentUser.photoURL },
-          [otherUserId]: { name: otherUser?.name, photoURL: otherUser?.photoURL },
-        }
-      })
-    }
-
     const messagesRef = collection(db, 'chats', chatId, 'messages');
     await addDoc(messagesRef, {
       chatId: chatId,
