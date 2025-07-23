@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
 const apps: DrawerApp[] = [
+  { id: 'attom', name: 'Attom', logo: 'https://placehold.co/48x48/9ca3af/FFFFFF?text=A', href: '/attom' },
   { id: 'bitt', name: 'Bitt', logo: 'https://placehold.co/48x48/fde047/000000?text=B', href: '/bitt' },
   { id: 'chhutir-dine', name: 'Chhutir Dine', logo: 'https://placehold.co/48x48/ff9800/FFFFFF?text=C', href: '/chhutir-dine' },
   { id: 'findit', name: 'Findit', logo: '/findit-logo.png', href: '/findit' },
@@ -27,7 +28,6 @@ const apps: DrawerApp[] = [
 ];
 
 const moreApps: DrawerApp[] = [
-    { id: 'attom', name: 'Attom', logo: 'https://placehold.co/48x48/9ca3af/FFFFFF?text=A', href: '/attom' },
     { id: 'gamezone', name: 'Gamezone', logo: 'https://placehold.co/48x48/4caf50/FFFFFF?text=G', href: '/gamezone' },
 ];
 
@@ -181,7 +181,7 @@ export default function AddPage() {
                                   </div>
                                   <div className="w-full mt-auto space-y-2">
                                     <Button asChild className="w-full" variant="outline">
-                                      <Link href={app.href}>Local</Link>
+                                      <Link href={app.href}>Global</Link>
                                     </Button>
                                     <Button
                                       onClick={() => addAppToDrawer(app)}
