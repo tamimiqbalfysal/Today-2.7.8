@@ -84,6 +84,28 @@
 
     --radius: 1rem;
   }
+  
+  .theme-findit {
+    --background: 240 6% 10%;
+    --foreground: 210 40% 98%;
+    --card: 240 6% 12%;
+    --card-foreground: 210 40% 98%;
+    --popover: 240 6% 10%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 84 100% 50%; /* Vibrant Green */
+    --primary-foreground: 240 6% 10%;
+    --secondary: 240 6% 18%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 240 6% 18%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 210 40% 98%;
+    --accent-foreground: 240 6% 10%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 240 6% 18%;
+    --input: 240 6% 18%;
+    --ring: 84 100% 50%;
+  }
 }
 
 @layer base {

@@ -65,7 +65,7 @@ export default function FinditPage() {
     }
 
   return (
-      <div className="flex flex-col min-h-screen bg-secondary/50">
+      <div className="theme-findit flex flex-col h-screen bg-background">
         <main 
           className="flex-1 overflow-y-auto"
         >
@@ -198,5 +198,3 @@ export default function FinditPage() {
       </div>
   );
 }
-
-    
