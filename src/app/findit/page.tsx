@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Search, Upload } from 'lucide-react';
+import { PlusCircle, Search, Upload, X } from 'lucide-react';
+import Image from 'next/image';
 
 interface FoundItem {
     id: number;
@@ -46,6 +47,13 @@ export default function FinditPage() {
     const [itemLocation, setItemLocation] = useState('');
     const [contactInfo, setContactInfo] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
+    
+    // Image state
+    const [lostItemImage, setLostItemImage] = useState<File | null>(null);
+    const [lostItemImagePreview, setLostItemImagePreview] = useState<string | null>(null);
+    const [foundItemImage, setFoundItemImage] = useState<File | null>(null);
+    const [foundItemImagePreview, setFoundItemImagePreview] = useState<string | null>(null);
+
     const lostItemImageRef = useRef<HTMLInputElement>(null);
     const foundItemImageRef = useRef<HTMLInputElement>(null);
 
@@ -58,23 +66,50 @@ export default function FinditPage() {
         item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.description.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'lost' | 'found') => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const previewUrl = URL.createObjectURL(file);
+            if (type === 'lost') {
+                setLostItemImage(file);
+                setLostItemImagePreview(previewUrl);
+            } else {
+                setFoundItemImage(file);
+                setFoundItemImagePreview(previewUrl);
+            }
+        }
+    };
+
+    const handleRemoveImage = (type: 'lost' | 'found') => {
+        if (type === 'lost') {
+            setLostItemImage(null);
+            setLostItemImagePreview(null);
+            if (lostItemImageRef.current) lostItemImageRef.current.value = '';
+        } else {
+            setFoundItemImage(null);
+            setFoundItemImagePreview(null);
+            if (foundItemImageRef.current) foundItemImageRef.current.value = '';
+        }
+    };
     
     const handleReportSubmit = (type: 'lost' | 'found') => (e: React.FormEvent) => {
         e.preventDefault();
-        // Here you would typically handle the form submission,
-        // e.g., send data to a backend or update state.
         console.log({
             type,
             itemName,
             itemDescription,
             itemLocation,
-            contactInfo
+            contactInfo,
+            lostItemImage,
+            foundItemImage,
         });
-        // Reset form for simplicity
         setItemName('');
         setItemDescription('');
         setItemLocation('');
         setContactInfo('');
+        handleRemoveImage('lost');
+        handleRemoveImage('found');
     }
 
   return (
@@ -111,7 +146,6 @@ export default function FinditPage() {
                             </div>
                         </div>
                         <div className="grid md:grid-cols-2 gap-8 mt-6">
-                            {/* Lost Items Section */}
                             <div>
                                 <h2 className="text-2xl font-bold mb-4 text-center">Lost Items</h2>
                                 <div className="space-y-4">
@@ -132,7 +166,6 @@ export default function FinditPage() {
                                     ))}
                                 </div>
                             </div>
-                             {/* Found Items Section */}
                             <div>
                                 <h2 className="text-2xl font-bold mb-4 text-center">Found Items</h2>
                                 <div className="space-y-4">
@@ -183,8 +216,17 @@ export default function FinditPage() {
                                             </div >
                                             <div className="space-y-1">
                                                 <Label>Image (optional)</Label>
-                                                <Input type="file" ref={lostItemImageRef} className="hidden" accept="image/*" />
-                                                <Button type="button" variant="outline" className="w-full" onClick={() => lostItemImageRef.current?.click()}><Upload className="mr-2 h-4 w-4" /> Upload Image</Button>
+                                                <Input type="file" ref={lostItemImageRef} onChange={(e) => handleImageChange(e, 'lost')} className="hidden" accept="image/*" />
+                                                {lostItemImagePreview ? (
+                                                    <div className="relative w-full h-40 rounded-md border">
+                                                        <Image src={lostItemImagePreview} alt="Preview" layout="fill" objectFit="contain" />
+                                                        <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2 h-6 w-6 rounded-full" onClick={() => handleRemoveImage('lost')}>
+                                                            <X className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    <Button type="button" variant="outline" className="w-full" onClick={() => lostItemImageRef.current?.click()}><Upload className="mr-2 h-4 w-4" /> Upload Image</Button>
+                                                )}
                                             </div>
                                             <Button type="submit" className="w-full"><PlusCircle className="mr-2 h-4 w-4" /> Report Lost Item</Button>
                                         </form>
@@ -209,8 +251,17 @@ export default function FinditPage() {
                                             </div>
                                             <div className="space-y-1">
                                                 <Label>Image (optional)</Label>
-                                                <Input type="file" ref={foundItemImageRef} className="hidden" accept="image/*" />
-                                                <Button type="button" variant="outline" className="w-full" onClick={() => foundItemImageRef.current?.click()}><Upload className="mr-2 h-4 w-4" /> Upload Image</Button>
+                                                <Input type="file" ref={foundItemImageRef} onChange={(e) => handleImageChange(e, 'found')} className="hidden" accept="image/*" />
+                                                {foundItemImagePreview ? (
+                                                    <div className="relative w-full h-40 rounded-md border">
+                                                        <Image src={foundItemImagePreview} alt="Preview" layout="fill" objectFit="contain" />
+                                                        <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2 h-6 w-6 rounded-full" onClick={() => handleRemoveImage('found')}>
+                                                            <X className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    <Button type="button" variant="outline" className="w-full" onClick={() => foundItemImageRef.current?.click()}><Upload className="mr-2 h-4 w-4" /> Upload Image</Button>
+                                                )}
                                             </div>
                                             <Button type="submit" className="w-full"><PlusCircle className="mr-2 h-4 w-4" /> Report Found Item</Button>
                                         </form>
