@@ -74,9 +74,10 @@ export default function FinditPage() {
             setUserItems([]);
             return;
         };
-        const q = query(collection(db, "finditItems"), where("authorId", "==", user.uid), orderBy("timestamp", "desc"));
+        const q = query(collection(db, "finditItems"), where("authorId", "==", user.uid));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FinditItem));
+            items.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
             setUserItems(items);
         });
         return () => unsubscribe();
@@ -134,7 +135,7 @@ export default function FinditPage() {
             } catch (error: any) {
                 let description = "Could not upload your image. Please try again.";
                 if (error.code === 'storage/unauthorized') {
-                    description = "Permission Denied. Your Firebase Storage rules are not configured to allow uploads. Please update them in the Firebase Console.";
+                    description = "Permission Denied. Your Firebase Storage security rules are not configured to allow uploads. Please update them in the Firebase Console.";
                 }
                 toast({ variant: "destructive", title: "Image Upload Failed", description, duration: 10000 });
                 setIsSubmitting(false);
