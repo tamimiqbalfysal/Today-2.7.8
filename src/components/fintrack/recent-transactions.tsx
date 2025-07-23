@@ -86,7 +86,9 @@ function OriginalPostCard({ post }: { post: Post }) {
                     <AvatarFallback>{authorInitial}</AvatarFallback>
                 </Avatar>
                 <div>
-                    <p className="font-semibold">{post.authorName || 'Anonymous'}</p>
+                    <p className="font-semibold" style={{ color: post.localColor || '#FFA500' }}>
+                      {post.authorName || 'Anonymous'}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                         {formatDistanceToNow(timestamp, { addSuffix: true })}
                     </p>
@@ -234,7 +236,8 @@ function PostCard({ post: initialPost, currentUser, onDelete, onMakePostPrivate,
 
     const hasEnglishContent = post.content || post.mediaURL;
     const hasBanglaContent = post.contentBangla || post.mediaURLBangla;
-    const hasMultipleSlides = hasEnglishContent && (hasBanglaContent || post.sharedPost);
+    const hasMultipleSlides = (hasEnglishContent || post.type === 'share') && (hasBanglaContent || post.sharedPost);
+
 
     const defenceCreditValue = post.defenceCredit || 0;
     const lastOffenceCreditValue = post.offenceCredit || 0;
@@ -372,7 +375,7 @@ function PostCard({ post: initialPost, currentUser, onDelete, onMakePostPrivate,
                                                     {post.mediaType === 'video' && <video src={post.mediaURL} controls className="w-full h-full object-cover bg-black" />}
                                                 </div>
                                             )}
-                                            {post.type === 'share' && post.sharedPost && (
+                                             {post.type === 'share' && post.sharedPost && (
                                                 <OriginalPostCard post={post.sharedPost} />
                                             )}
                                         </div>
@@ -643,4 +646,3 @@ export function PostFeed({ posts, currentUser, onDeletePost, onMakePostPrivate, 
     </div>
   );
 }
-
