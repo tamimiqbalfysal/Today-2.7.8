@@ -9,7 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Star, Search, Filter, Briefcase, PlusCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Gig } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -84,17 +84,22 @@ export default function OfficeExpressPage() {
 
   useEffect(() => {
     if (!db) return;
-    setIsLoading(true);
-    const gigsQuery = query(collection(db, 'gigs'), orderBy('timestamp', 'desc'));
-    const unsubscribe = onSnapshot(gigsQuery, (snapshot) => {
-      const fetchedGigs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Gig));
-      setGigs(fetchedGigs);
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Error fetching gigs:", error);
-      setIsLoading(false);
-    });
-    return () => unsubscribe();
+    
+    const fetchGigs = async () => {
+        setIsLoading(true);
+        try {
+            const gigsQuery = query(collection(db, 'gigs'), orderBy('timestamp', 'desc'));
+            const querySnapshot = await getDocs(gigsQuery);
+            const fetchedGigs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Gig));
+            setGigs(fetchedGigs);
+        } catch (error) {
+            console.error("Error fetching gigs:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    fetchGigs();
   }, []);
 
   const filteredGigs = useMemo(() => {
