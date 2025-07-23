@@ -63,6 +63,7 @@ export default function FinditPage() {
     const [foundForm, setFoundForm] = useState<FoundItemFormState>({ name: '', description: '', foundLocation: '', contact: '', image: null, imagePreview: null });
 
     const [searchTerm, setSearchTerm] = useState('');
+    const [activeTab, setActiveTab] = useState('lost-and-found');
 
     const lostItemImageRef = useRef<HTMLInputElement>(null);
     const foundItemImageRef = useRef<HTMLInputElement>(null);
@@ -101,16 +102,34 @@ export default function FinditPage() {
     
     const handleLostReportSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        console.log("Submitting Lost Item:", lostForm);
-        // Reset form
+        const newLostItem: LostItem = {
+            id: Date.now(),
+            name: lostForm.name,
+            description: lostForm.description,
+            lastSeen: lostForm.lastSeen,
+            contact: lostForm.contact,
+            imageUrl: lostForm.imagePreview || 'https://placehold.co/300x200.png'
+        };
+        setLostItems(prev => [newLostItem, ...prev]);
         setLostForm({ name: '', description: '', lastSeen: '', contact: '', image: null, imagePreview: null });
+        if (lostItemImageRef.current) lostItemImageRef.current.value = '';
+        setActiveTab('lost-and-found');
     }
     
     const handleFoundReportSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        console.log("Submitting Found Item:", foundForm);
-        // Reset form
+        const newFoundItem: FoundItem = {
+            id: Date.now(),
+            name: foundForm.name,
+            description: foundForm.description,
+            foundLocation: foundForm.foundLocation,
+            contact: foundForm.contact,
+            imageUrl: foundForm.imagePreview || 'https://placehold.co/300x200.png'
+        };
+        setFoundItems(prev => [newFoundItem, ...prev]);
         setFoundForm({ name: '', description: '', foundLocation: '', contact: '', image: null, imagePreview: null });
+        if (foundItemImageRef.current) foundItemImageRef.current.value = '';
+        setActiveTab('lost-and-found');
     }
 
   return (
@@ -128,7 +147,7 @@ export default function FinditPage() {
                     </p>
                 </div>
                 
-                <Tabs defaultValue="lost-and-found" className="w-full">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger value="lost-and-found">Lost & Found Feed</TabsTrigger>
                         <TabsTrigger value="report-item">Report an Item</TabsTrigger>
