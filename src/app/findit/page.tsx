@@ -45,6 +45,17 @@ export default function FinditPage() {
     const [itemDescription, setItemDescription] = useState('');
     const [itemLocation, setItemLocation] = useState('');
     const [contactInfo, setContactInfo] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const filteredLostItems = lostItems.filter(item =>
+        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.description.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const filteredFoundItems = foundItems.filter(item =>
+        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.description.toLowerCase().includes(searchTerm.toLowerCase())
+    );
     
     const handleReportSubmit = (type: 'lost' | 'found') => (e: React.FormEvent) => {
         e.preventDefault();
@@ -85,12 +96,24 @@ export default function FinditPage() {
                         <TabsTrigger value="report-item">Report an Item</TabsTrigger>
                     </TabsList>
                     <TabsContent value="lost-and-found">
+                        <div className="my-6 max-w-lg mx-auto">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                                <Input
+                                type="search"
+                                placeholder="Search for items..."
+                                className="w-full pl-10"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                        </div>
                         <div className="grid md:grid-cols-2 gap-8 mt-6">
                             {/* Lost Items Section */}
                             <div>
                                 <h2 className="text-2xl font-bold mb-4 text-center">Lost Items</h2>
                                 <div className="space-y-4">
-                                    {lostItems.map(item => (
+                                    {filteredLostItems.map(item => (
                                         <Card key={item.id} className="overflow-hidden">
                                             {item.imageUrl && <img src={item.imageUrl} alt={item.name} className="w-full h-40 object-cover" />}
                                             <CardHeader>
@@ -111,7 +134,7 @@ export default function FinditPage() {
                             <div>
                                 <h2 className="text-2xl font-bold mb-4 text-center">Found Items</h2>
                                 <div className="space-y-4">
-                                     {foundItems.map(item => (
+                                     {filteredFoundItems.map(item => (
                                         <Card key={item.id} className="overflow-hidden">
                                             {item.imageUrl && <img src={item.imageUrl} alt={item.name} className="w-full h-40 object-cover" />}
                                             <CardHeader>
