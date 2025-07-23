@@ -105,3 +105,20 @@ export interface ThinkCourse {
   date: Timestamp;
   meetLink: string;
 }
+
+export interface Gig {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  currency: string;
+  sellerId: string;
+  sellerName: string;
+  sellerPhotoURL: string;
+  imageUrl: string;
+  category: string;
+  deliveryTime: number; // in days
+  rating: number; // average
+  reviews: number; // count
+  timestamp: Timestamp;
+}

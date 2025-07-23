@@ -13,10 +13,10 @@ export function FloatingCartButton() {
   const pathname = usePathname();
 
   // Pages where the cart button should be visible
-  const visiblePages = ['/attom', '/checkout', '/gift-garden', '/orgrim', '/secondsell', '/marco-polo', '/printit', '/machinehood', '/tribe'];
+  const visiblePages = ['/attom', '/checkout', '/gift-garden', '/orgrim', '/secondsell', '/video-bazaar', '/printit', '/machinehood', '/tribe', '/office-express'];
 
   // Do not show the button on pages not in the list, or on the checkout page if the cart is empty
-  if (!visiblePages.includes(pathname) || (pathname === '/checkout' && cartCount === 0)) {
+  if (!visiblePages.some(p => pathname.startsWith(p)) || (pathname === '/checkout' && cartCount === 0)) {
     return null;
   }
 
@@ -41,3 +41,5 @@ export function FloatingCartButton() {
     </Button>
   );
 }
+
+    
