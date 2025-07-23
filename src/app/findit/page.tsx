@@ -107,19 +107,23 @@ export default function FinditPage() {
     const handleLostReportSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
-        let imageUrl = 'https://placehold.co/300x200.png';
+        let imageUrl = lostForm.imagePreview || 'https://placehold.co/300x200.png';
 
         if (lostForm.image && storage) {
             try {
                 const imageRef = ref(storage, `findit/lost/${Date.now()}_${lostForm.image.name}`);
                 const snapshot = await uploadBytes(imageRef, lostForm.image);
                 imageUrl = await getDownloadURL(snapshot.ref);
-            } catch (error) {
+            } catch (error: any) {
                 console.error("Error uploading image: ", error);
+                let description = "Could not upload your image. Please try again.";
+                if (error.code === 'storage/unauthorized') {
+                    description = "Permission denied. Check your Firebase Storage rules to allow uploads.";
+                }
                 toast({
                     variant: "destructive",
                     title: "Image Upload Failed",
-                    description: "Could not upload your image. Please try again.",
+                    description: description,
                 });
                 setIsSubmitting(false);
                 return;
@@ -144,19 +148,23 @@ export default function FinditPage() {
     const handleFoundReportSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
-        let imageUrl = 'https://placehold.co/300x200.png';
+        let imageUrl = foundForm.imagePreview || 'https://placehold.co/300x200.png';
 
         if (foundForm.image && storage) {
              try {
                 const imageRef = ref(storage, `findit/found/${Date.now()}_${foundForm.image.name}`);
                 const snapshot = await uploadBytes(imageRef, foundForm.image);
                 imageUrl = await getDownloadURL(snapshot.ref);
-            } catch (error) {
+            } catch (error: any) {
                 console.error("Error uploading image: ", error);
-                 toast({
+                let description = "Could not upload your image. Please try again.";
+                if (error.code === 'storage/unauthorized') {
+                    description = "Permission denied. Check your Firebase Storage rules to allow uploads.";
+                }
+                toast({
                     variant: "destructive",
                     title: "Image Upload Failed",
-                    description: "Could not upload your image. Please try again.",
+                    description: description,
                 });
                 setIsSubmitting(false);
                 return;
