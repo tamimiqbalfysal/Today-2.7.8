@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -148,9 +147,10 @@ export default function ProfilePage() {
     }, (error) => { console.error("Error fetching user posts:", error); });
 
     // Fetch Blood Requests
-    const myQ = query(collection(db, 'bloodRequests'), where('authorId', '==', user.uid), orderBy('timestamp', 'desc'));
+    const myQ = query(collection(db, 'bloodRequests'), where('authorId', '==', user.uid));
     const unsubscribeMy = onSnapshot(myQ, (snapshot) => {
         const fetchedMyRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BloodRequest));
+        fetchedMyRequests.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
         setMyRequests(fetchedMyRequests);
     }, (error) => { console.error("Error fetching your blood requests:", error); });
 
@@ -437,3 +437,5 @@ export default function ProfilePage() {
         </div>
   );
 }
+
+    
