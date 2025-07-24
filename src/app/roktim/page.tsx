@@ -17,6 +17,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { HeartPulse, Droplets, Hospital, Phone, Loader2, Trash2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import Link from 'next/link';
 
 
 const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -183,37 +184,46 @@ export default function RoktimPage() {
                                     <CardDescription>Fill the form to post an urgent request.</CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <form onSubmit={handleSubmit} className="space-y-4">
-                                        <div className="space-y-1">
-                                            <Label htmlFor="blood-group">Blood Group</Label>
-                                            <Select value={bloodGroup} onValueChange={setBloodGroup} disabled={isSubmitting}>
-                                                <SelectTrigger id="blood-group">
-                                                    <SelectValue placeholder="Select Blood Group" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {bloodGroups.map(group => (
-                                                        <SelectItem key={group} value={group}>{group}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                    {user ? (
+                                        <form onSubmit={handleSubmit} className="space-y-4">
+                                            <div className="space-y-1">
+                                                <Label htmlFor="blood-group">Blood Group</Label>
+                                                <Select value={bloodGroup} onValueChange={setBloodGroup} disabled={isSubmitting}>
+                                                    <SelectTrigger id="blood-group">
+                                                        <SelectValue placeholder="Select Blood Group" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {bloodGroups.map(group => (
+                                                            <SelectItem key={group} value={group}>{group}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label htmlFor="hospital">Hospital Name & Location</Label>
+                                                <Input id="hospital" value={hospitalName} onChange={e => setHospitalName(e.target.value)} placeholder="e.g., City General Hospital" disabled={isSubmitting}/>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label htmlFor="contact">Contact Number</Label>
+                                                <Input id="contact" type="tel" value={contact} onChange={e => setContact(e.target.value)} placeholder="Your phone number" disabled={isSubmitting} />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label htmlFor="notes">Additional Notes (Optional)</Label>
+                                                <Textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g., Patient is in ICU, need by tomorrow." disabled={isSubmitting} />
+                                            </div>
+                                            <Button type="submit" className="w-full bg-destructive hover:bg-destructive/90" disabled={isSubmitting}>
+                                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                                {isSubmitting ? 'Posting...' : 'Post Request'}
+                                            </Button>
+                                        </form>
+                                    ) : (
+                                        <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
+                                            <p className="mb-4">Please log in to post a blood request.</p>
+                                            <Button asChild>
+                                                <Link href="/login">Log In</Link>
+                                            </Button>
                                         </div>
-                                         <div className="space-y-1">
-                                            <Label htmlFor="hospital">Hospital Name & Location</Label>
-                                            <Input id="hospital" value={hospitalName} onChange={e => setHospitalName(e.target.value)} placeholder="e.g., City General Hospital" disabled={isSubmitting}/>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label htmlFor="contact">Contact Number</Label>
-                                            <Input id="contact" type="tel" value={contact} onChange={e => setContact(e.target.value)} placeholder="Your phone number" disabled={isSubmitting} />
-                                        </div>
-                                         <div className="space-y-1">
-                                            <Label htmlFor="notes">Additional Notes (Optional)</Label>
-                                            <Textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g., Patient is in ICU, need by tomorrow." disabled={isSubmitting} />
-                                        </div>
-                                        <Button type="submit" className="w-full bg-destructive hover:bg-destructive/90" disabled={isSubmitting || !user}>
-                                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                            {user ? (isSubmitting ? 'Posting...' : 'Post Request') : 'Log in to Post'}
-                                        </Button>
-                                    </form>
+                                    )}
                                 </CardContent>
                             </Card>
                         </div>
@@ -246,3 +256,4 @@ export default function RoktimPage() {
         </div>
     );
 }
+
