@@ -46,7 +46,7 @@ function RequestCard({ request, isOwner, onDelete }: { request: BloodRequest, is
                 {request.notes && <p className="text-sm text-muted-foreground pt-2 border-t mt-3">{request.notes}</p>}
             </CardContent>
             <CardFooter className="flex justify-between items-center text-xs text-muted-foreground">
-                <span>Posted by {isOwner ? 'You' : request.authorName}</span>
+                <span>Posted by {request.authorName}</span>
                 <span>{formatDistanceToNow(request.timestamp.toDate(), { addSuffix: true })}</span>
             </CardFooter>
             {isOwner && (
@@ -256,4 +256,3 @@ export default function RoktimPage() {
         </div>
     );
 }
-
