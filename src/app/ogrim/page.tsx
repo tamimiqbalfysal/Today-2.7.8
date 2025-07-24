@@ -32,29 +32,6 @@ function ProductCard({ product, onDelete, isOwner }: { product: OgrimProduct, on
                     className="object-cover"
                 />
             </Link>
-            {isOwner && (
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                This action cannot be undone. This will permanently delete this pre-order listing.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => onDelete(product.id, product.imagePath || '')} className="bg-destructive hover:bg-destructive/90">
-                                Delete
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-             )}
         </div>
          <CardHeader>
              <CardTitle className="truncate">{product.title}</CardTitle>
@@ -73,6 +50,29 @@ function ProductCard({ product, onDelete, isOwner }: { product: OgrimProduct, on
                 <ShoppingBag className="mr-2 h-4 w-4" /> Pre-Order
               </Link>
             </Button>
+            {isOwner && (
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="destructive" className="w-full">
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete this pre-order listing.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => onDelete(product.id, product.imagePath || '')} className="bg-destructive hover:bg-destructive/90">
+                                Delete
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+             )}
          </CardFooter>
     </Card>
   );
@@ -308,4 +308,3 @@ export default function OgrimPage() {
       </div>
   );
 }
-
