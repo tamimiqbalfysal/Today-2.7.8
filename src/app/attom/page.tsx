@@ -12,7 +12,7 @@ import { Star, ShoppingCart, Search, Filter, Info } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Post as Product } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -128,40 +128,45 @@ export default function AttomPage() {
 
   useEffect(() => {
     if (!db) return;
-    setIsLoadingProducts(true);
 
-    const categoriesToFetch = ['Tribe', 'Gift Garden', 'Video Bazaar', 'Ogrim'];
-    if (categoriesToFetch.length === 0) {
-      setProducts([]);
-      setIsLoadingProducts(false);
-      return;
-    }
+    const fetchProducts = async () => {
+        setIsLoadingProducts(true);
+        try {
+            const categoriesToFetch = ['Tribe', 'Gift Garden', 'Video Bazaar', 'Ogrim'];
+            const postsCollection = collection(db, 'posts');
+            
+            const queries = categoriesToFetch.map(category => 
+                query(postsCollection, where('category', '==', category))
+            );
 
-    const productsQuery = query(
-      collection(db, 'posts'),
-      where('category', 'in', categoriesToFetch),
-      orderBy('timestamp', 'desc')
-    );
+            const querySnapshots = await Promise.all(queries.map(q => getDocs(q)));
+            
+            const fetchedProducts: Product[] = [];
+            querySnapshots.forEach(snapshot => {
+                snapshot.docs.forEach(doc => {
+                    fetchedProducts.push({ id: doc.id, ...doc.data() } as Product);
+                });
+            });
 
-    const unsubscribe = onSnapshot(productsQuery, (snapshot) => {
-      const fetchedProducts = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Product));
-      
-      setProducts(fetchedProducts);
-      setIsLoadingProducts(false);
-    }, (error) => {
-      console.error("Error fetching products:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Could not load products. If the issue persists, you may need to add a Firestore index.",
-      });
-      setIsLoadingProducts(false);
-    });
-
-    return () => unsubscribe();
+            // Remove duplicates and sort by timestamp
+            const uniqueProducts = Array.from(new Map(fetchedProducts.map(p => [p.id, p])).values());
+            uniqueProducts.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+            
+            setProducts(uniqueProducts);
+        } catch (error) {
+            console.error("Error fetching products:", error);
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Could not load products.",
+            });
+        } finally {
+            setIsLoadingProducts(false);
+        }
+    };
+    
+    fetchProducts();
+    
   }, [toast]);
 
   const filteredProducts = useMemo(() => {
@@ -328,3 +333,4 @@ export default function AttomPage() {
       </div>
   );
 }
+
