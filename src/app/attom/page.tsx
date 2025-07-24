@@ -97,13 +97,13 @@ function ProductCard({ product }: { product: Product }) {
       <div className="p-4 pt-0">
         <div className="flex flex-col gap-2">
             <Button asChild variant="outline" className="w-full">
-              <Link href={`/attom/${product.id}`}>
+              <Link href={product.category === 'Ogrim' ? `/ogrim/${product.id}` : `/attom/${product.id}`}>
                 <Info className="mr-2 h-4 w-4" /> Details
               </Link>
             </Button>
             {product.category === 'Ogrim' ? (
                 <Button asChild className="w-full">
-                    <Link href="/ogrim">
+                    <Link href={`/ogrim/${product.id}`}>
                         <ShoppingCart className="mr-2 h-4 w-4" /> Pre-Order
                     </Link>
                 </Button>
@@ -133,13 +133,13 @@ export default function AttomPage() {
         setIsLoadingProducts(true);
         try {
             const categoriesToFetch = ['Tribe', 'Gift Garden', 'Video Bazaar', 'Ogrim'];
-            const postsCollection = collection(db, 'posts');
             
-            const queries = categoriesToFetch.map(category => 
-                query(postsCollection, where('category', '==', category))
-            );
-
-            const querySnapshots = await Promise.all(queries.map(q => getDocs(q)));
+            const productPromises = categoriesToFetch.map(category => {
+                const q = query(collection(db, 'posts'), where('category', '==', category));
+                return getDocs(q);
+            });
+            
+            const querySnapshots = await Promise.all(productPromises);
             
             const fetchedProducts: Product[] = [];
             querySnapshots.forEach(snapshot => {
@@ -147,12 +147,11 @@ export default function AttomPage() {
                     fetchedProducts.push({ id: doc.id, ...doc.data() } as Product);
                 });
             });
-
-            // Remove duplicates and sort by timestamp
-            const uniqueProducts = Array.from(new Map(fetchedProducts.map(p => [p.id, p])).values());
-            uniqueProducts.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
             
-            setProducts(uniqueProducts);
+            // Note: Sorting across different query results needs to be done on the client
+            fetchedProducts.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+            
+            setProducts(fetchedProducts);
         } catch (error) {
             console.error("Error fetching products:", error);
             toast({
@@ -333,4 +332,3 @@ export default function AttomPage() {
       </div>
   );
 }
-

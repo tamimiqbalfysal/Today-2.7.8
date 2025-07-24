@@ -148,12 +148,14 @@ export interface OgrimProduct {
     title: string;
     description: string;
     price: number;
+    target: number;
+    preOrderCount?: number;
     imageUrl: string;
     imagePath: string;
     timestamp: Timestamp;
 }
 
-export interface PreOrder {
+export interface OgrimPreOrder {
     id: string;
     productId: string;
     customerName: string;

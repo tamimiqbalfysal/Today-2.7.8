@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -13,37 +12,21 @@ import { useToast } from '@/hooks/use-toast';
 import { db, storage } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp, query, onSnapshot, orderBy, doc, Timestamp, deleteDoc, where } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import type { Post as Product } from '@/lib/types';
+import type { OgrimProduct } from '@/lib/types';
 import Image from 'next/image';
-import { Upload, Trash2, X, ShoppingBag, Send, Loader2, Info } from 'lucide-react';
+import { Upload, Trash2, X, ShoppingBag, Info, User, Target } from 'lucide-react';
 import Link from 'next/link';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose, DialogFooter } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCart } from '@/contexts/cart-context';
 
-function ProductCard({ product, onDelete, isOwner }: { product: Product, onDelete: (productId: string, mediaUrl: string) => void, isOwner: boolean }) {
-  const { addToCart } = useCart();
-  const { toast } = useToast();
-  
-  const handleAddToCart = () => {
-    addToCart(product, 1);
-    toast({
-      title: 'Added to Cart',
-      description: `${product.authorName} has been added to your cart.`,
-    });
-  };
-
-  const priceMatch = product.content.match(/(\d+(\.\d+)?)$/);
-  const price = priceMatch ? parseFloat(priceMatch[1]).toFixed(2) : '0.00';
-
+function ProductCard({ product, onDelete, isOwner }: { product: OgrimProduct, onDelete: (productId: string, imagePath: string) => void, isOwner: boolean }) {
   return (
     <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex flex-col group">
         <div className="relative">
             <div className="relative aspect-video">
                 <Image
-                    src={product.mediaURL || 'https://placehold.co/400x225.png'}
-                    alt={product.authorName}
+                    src={product.imageUrl || 'https://placehold.co/400x225.png'}
+                    alt={product.title}
                     fill
                     className="object-cover"
                 />
@@ -64,7 +47,7 @@ function ProductCard({ product, onDelete, isOwner }: { product: Product, onDelet
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => onDelete(product.id, product.mediaURL || '')} className="bg-destructive hover:bg-destructive/90">
+                            <AlertDialogAction onClick={() => onDelete(product.id, product.imagePath || '')} className="bg-destructive hover:bg-destructive/90">
                                 Delete
                             </AlertDialogAction>
                         </AlertDialogFooter>
@@ -73,20 +56,21 @@ function ProductCard({ product, onDelete, isOwner }: { product: Product, onDelet
              )}
         </div>
          <CardHeader>
-             <CardTitle className="truncate">{product.authorName}</CardTitle>
-             <CardDescription className="line-clamp-2 h-10">{product.content.replace(/(\d+(\.\d+)?)$/, '').trim()}</CardDescription>
+             <CardTitle className="truncate">{product.title}</CardTitle>
+             <CardDescription className="line-clamp-2 h-10">{product.description}</CardDescription>
          </CardHeader>
-         <CardContent className="flex-grow">
-            <p className="text-2xl font-bold text-primary">${price}</p>
+         <CardContent className="flex-grow space-y-2">
+            <p className="text-2xl font-bold text-primary">${product.price.toFixed(2)}</p>
+             <div className="flex items-center text-sm text-muted-foreground gap-2">
+                <Target className="h-4 w-4" />
+                <span>{product.preOrderCount || 0} / {product.target} pre-orders</span>
+            </div>
          </CardContent>
          <CardFooter className="flex flex-col gap-2">
-            <Button asChild variant="outline" className="w-full">
-              <Link href={`/attom/${product.id}`}>
-                <Info className="mr-2 h-4 w-4" /> Details
+            <Button asChild className="w-full">
+              <Link href={`/ogrim/${product.id}`}>
+                <Info className="mr-2 h-4 w-4" /> View Details
               </Link>
-            </Button>
-            <Button className="w-full" onClick={handleAddToCart}>
-                <ShoppingBag className="mr-2 h-4 w-4" /> Add to Cart
             </Button>
          </CardFooter>
     </Card>
@@ -100,25 +84,37 @@ export default function OgrimPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
+  const [target, setTarget] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<OgrimProduct[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
   useEffect(() => {
     if (!db) return;
     setIsLoadingProducts(true);
 
-    const productsCollection = collection(db, 'posts');
-    const q = query(productsCollection, where("category", "==", "Ogrim"), orderBy('timestamp', 'desc'));
+    const productsCollection = collection(db, 'ogrim-products');
+    const q = query(productsCollection, orderBy('timestamp', 'desc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const fetchedProducts = snapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() } as Product));
-        setProducts(fetchedProducts);
-        setIsLoadingProducts(false);
+            .map(doc => ({ id: doc.id, ...doc.data() } as OgrimProduct));
+        
+        // Fetch pre-order counts for each product
+        const productsWithCounts = Promise.all(fetchedProducts.map(async (p) => {
+            const preordersRef = collection(db, `ogrim-products/${p.id}/preorders`);
+            const preorderSnapshot = await getDocs(preordersRef);
+            return { ...p, preOrderCount: preorderSnapshot.size };
+        }));
+
+        productsWithCounts.then(res => {
+            setProducts(res);
+            setIsLoadingProducts(false);
+        });
+
     }, (error) => {
         console.error("Error fetching products:", error);
         toast({variant: 'destructive', title: "Error", description: "Could not fetch pre-order products."})
@@ -144,13 +140,13 @@ export default function OgrimPage() {
   };
 
 
-  const handleDeleteProduct = async (productId: string, mediaUrl: string) => {
+  const handleDeleteProduct = async (productId: string, imagePath: string) => {
     if (!db || !storage || !user) return;
     
     try {
-        await deleteDoc(doc(db, 'posts', productId));
-        if (mediaUrl) {
-            const storageRef = ref(storage, mediaUrl);
+        await deleteDoc(doc(db, 'ogrim-products', productId));
+        if (imagePath) {
+            const storageRef = ref(storage, imagePath);
             await deleteObject(storageRef).catch(err => {
                 if (err.code !== 'storage/object-not-found') throw err;
             });
@@ -164,7 +160,7 @@ export default function OgrimPage() {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !description || !price || !imageFile || !user) {
+    if (!title || !description || !price || !target || !imageFile || !user) {
       toast({ variant: 'destructive', title: 'Missing Fields', description: 'Please fill out all fields and select an image.' });
       return;
     }
@@ -173,33 +169,29 @@ export default function OgrimPage() {
     try {
       if (!storage || !db) throw new Error("Firebase not configured");
       
-      const storageRef = ref(storage, `products/${user.uid}/${Date.now()}_${imageFile.name}`);
+      const imagePath = `ogrim-products/${user.uid}/${Date.now()}_${imageFile.name}`;
+      const storageRef = ref(storage, imagePath);
       await uploadBytes(storageRef, imageFile);
       const imageUrl = await getDownloadURL(storageRef);
 
-      await addDoc(collection(db, `posts`), {
-        authorId: user.uid,
-        authorName: title,
-        authorPhotoURL: user.photoURL,
-        content: `${description}\n${parseFloat(price)}`,
+      await addDoc(collection(db, `ogrim-products`), {
+        sellerId: user.uid,
+        sellerName: user.name,
+        title: title,
+        description: description,
+        price: parseFloat(price),
+        target: parseInt(target, 10),
+        imageUrl: imageUrl,
+        imagePath: imagePath,
         timestamp: Timestamp.now(),
-        media: [{ url: imageUrl, type: 'image' }],
-        mediaURL: imageUrl,
-        mediaType: 'image',
-        type: 'original',
-        category: 'Ogrim',
-        likes: [],
-        laughs: [],
-        comments: [],
-        reviewCount: 0,
-        averageRating: 0,
       });
       
-      toast({ title: 'Success!', description: 'Your product has been listed for sale.' });
+      toast({ title: 'Success!', description: 'Your product has been listed for pre-order.' });
       
       setTitle('');
       setDescription('');
       setPrice('');
+      setTarget('');
       handleRemoveImage();
 
     } catch (error: any) {
@@ -231,19 +223,23 @@ export default function OgrimPage() {
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleFormSubmit} className="space-y-6">
+                    <div className="space-y-2">
+                        <Label htmlFor="title">Product Name</Label>
+                        <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Limited Edition Cyber-Katana" disabled={isSubmitting} />
+                    </div>
+                     <div className="space-y-2">
+                      <Label htmlFor="description">Description</Label>
+                      <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe your product in detail..." disabled={isSubmitting} />
+                    </div>
                     <div className="grid md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <Label htmlFor="title">Product Name</Label>
-                            <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Limited Edition Cyber-Katana" disabled={isSubmitting} />
-                        </div>
                         <div className="space-y-2">
                             <Label htmlFor="price">Price (USD)</Label>
                             <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="e.g., 299.99" min="0.01" step="0.01" disabled={isSubmitting} />
                         </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="description">Description</Label>
-                      <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe your product in detail..." disabled={isSubmitting} />
+                        <div className="space-y-2">
+                            <Label htmlFor="target">Pre-order Target</Label>
+                            <Input id="target" type="number" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="e.g., 50" min="1" step="1" disabled={isSubmitting} />
+                        </div>
                     </div>
                     <div className="space-y-2">
                       <Label>Product Image</Label>
@@ -287,7 +283,12 @@ export default function OgrimPage() {
               ) : products.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {products.map(product => (
-                      <ProductCard key={product.id} product={product} onDelete={handleDeleteProduct} isOwner={user?.uid === product.authorId} />
+                      <ProductCard 
+                        key={product.id} 
+                        product={product} 
+                        onDelete={handleDeleteProduct}
+                        isOwner={user?.uid === product.sellerId} 
+                      />
                     ))}
                 </div>
               ) : (
