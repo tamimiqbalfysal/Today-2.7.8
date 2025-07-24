@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import type { Chat } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -51,6 +52,7 @@ export default function ChatListPage() {
   const { user, loading } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (loading || !user || !db) {
@@ -67,17 +69,32 @@ export default function ChatListPage() {
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedChats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Chat));
-      // Sort on the client side to avoid needing a composite index for timestamp
+      
       fetchedChats.sort((a, b) => (b.lastMessage?.timestamp?.toMillis() || 0) - (a.lastMessage?.timestamp?.toMillis() || 0));
       setChats(fetchedChats);
       setIsLoading(false);
     }, (error) => {
         console.error("Firestore error:", error);
+        if (error.code === 'permission-denied') {
+            toast({
+                variant: 'destructive',
+                title: 'Permission Denied',
+                description: "You don't have permission to read your chats. Please check your Firestore security rules for the 'chats' collection.",
+                duration: 9000
+            });
+        } else if (error.code === 'failed-precondition') {
+             toast({
+                variant: 'destructive',
+                title: 'Missing Index',
+                description: "The chat query requires a database index. Please create the index in your Firebase console as prompted in the developer console error.",
+                duration: 15000
+            });
+        }
         setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user, loading]);
+  }, [user, loading, toast]);
   
   if(loading || isLoading) {
     return (

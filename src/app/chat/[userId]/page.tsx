@@ -14,11 +14,13 @@ import { Send, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ChatPage() {
   const { user: currentUser } = useAuth();
   const params = useParams();
   const otherUserId = params.userId as string;
+  const { toast } = useToast();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -56,12 +58,20 @@ export default function ChatPage() {
       setMessages(msgs);
     }, (error) => {
         console.error("Error in snapshot listener:", error);
+        if (error.code === 'permission-denied') {
+            toast({
+                variant: 'destructive',
+                title: 'Permission Denied',
+                description: "You don't have permission to read chat messages. Check your Firestore security rules for the 'chats' collection.",
+                duration: 9000
+            });
+        }
     });
 
     return () => {
         unsubscribe();
     };
-  }, [currentUser, otherUserId, db, getChatId]);
+  }, [currentUser, otherUserId, db, getChatId, toast]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -99,8 +109,16 @@ export default function ChatPage() {
             }
         }, { merge: true });
 
-    } catch(error) {
+    } catch(error: any) {
         console.error("Error sending message:", error);
+        if (error.code === 'permission-denied') {
+            toast({
+                variant: 'destructive',
+                title: 'Permission Denied',
+                description: "You don't have permission to send messages. Check your Firestore security rules for writing to the 'chats' collection and its 'messages' subcollection.",
+                duration: 9000
+            });
+        }
     }
   };
 

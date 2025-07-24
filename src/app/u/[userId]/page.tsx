@@ -80,7 +80,7 @@ export default function UserProfilePage() {
     });
 
 
-    const postsQuery = query(collection(db, 'posts'), where("authorId", "==", userId));
+    const postsQuery = query(collection(db, 'posts'), where("authorId", "==", userId), where('isPrivate', '==', false));
     const unsubscribePosts = onSnapshot(postsQuery,
       async (snapshot) => {
         const fetchedPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
@@ -90,11 +90,14 @@ export default function UserProfilePage() {
       },
       (error) => {
         console.error("Error fetching user posts:", error);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Could not load user's posts.",
-        });
+        if (error.code === 'permission-denied') {
+            toast({
+                variant: 'destructive',
+                title: 'Permission Denied',
+                description: "You do not have permission to view these posts. Check your Firestore security rules for the 'posts' collection.",
+                duration: 9000
+            });
+        }
         setIsLoading(false);
       }
     );
@@ -331,4 +334,3 @@ export default function UserProfilePage() {
       </div>
   );
 }
-
