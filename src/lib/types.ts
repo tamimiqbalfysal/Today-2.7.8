@@ -100,25 +100,6 @@ export interface Notification {
   read: boolean;
 }
 
-export interface Product {
-  id: string;
-  userId: string;
-  name: string;
-  description: string;
-  price: number;
-  imageUrl: string;
-  category: string;
-  sellerId: string;
-  sellerName: string;
-  createdAt: Timestamp;
-  rating?: number;
-}
-
-export interface ThinkCourse {
-  date: Timestamp;
-  meetLink: string;
-}
-
 export interface Gig {
   id: string;
   title: string;
