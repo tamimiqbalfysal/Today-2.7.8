@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -19,7 +18,6 @@ import { HeartPulse, Droplets, Hospital, Phone, Loader2, Trash2, MapPin, User as
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 
@@ -116,7 +114,7 @@ export default function RoktimPage() {
 
     const [allRequests, setAllRequests] = useState<BloodRequest[]>([]);
     const [donors, setDonors] = useState<User[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingRequests, setIsLoadingRequests] = useState(true);
     const [isDonorsLoading, setIsDonorsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
@@ -146,7 +144,7 @@ export default function RoktimPage() {
 
     useEffect(() => {
         if (!db) {
-            setIsLoading(false);
+            setIsLoadingRequests(false);
             setIsDonorsLoading(false);
             return;
         }
@@ -155,13 +153,13 @@ export default function RoktimPage() {
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const fetchedRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BloodRequest));
             setAllRequests(fetchedRequests);
-            setIsLoading(false);
+            setIsLoadingRequests(false);
         }, (error) => {
             console.error("Error fetching all blood requests:", error);
             if(error.code === 'permission-denied') {
                 toast({ variant: 'destructive', title: 'Permission Denied', description: 'Your security rules may be preventing you from reading requests.'});
             }
-            setIsLoading(false);
+            setIsLoadingRequests(false);
         });
 
         const donorsQuery = query(collection(db, 'users'), where('donorBloodGroup', '!=', null));
@@ -214,7 +212,6 @@ export default function RoktimPage() {
                 timestamp: Timestamp.now(),
             });
             toast({ title: 'Request Posted', description: 'Your request for blood has been posted successfully.' });
-            // Reset form
             setBloodGroup('');
             setHospitalName('');
             setContact('');
@@ -254,7 +251,7 @@ export default function RoktimPage() {
     };
 
     return (
-        <div className="flex flex-col h-screen bg-red-50/50">
+        <div className="flex flex-col min-h-screen bg-red-50/50">
             <main className="flex-1 overflow-y-auto">
                 <div className="container mx-auto p-4 md:p-8">
                     <div className="text-center mb-12">
@@ -267,190 +264,181 @@ export default function RoktimPage() {
                         </p>
                     </div>
 
-                     <Tabs defaultValue="feed" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="feed">Urgent Requests</TabsTrigger>
-                            <TabsTrigger value="find-donors">Find Donors</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="feed" className="mt-6">
-                            <div className="grid lg:grid-cols-2 gap-8 items-start">
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>Request Blood</CardTitle>
-                                        <CardDescription>Fill the form to post an urgent request.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        {user ? (
-                                            <form onSubmit={handleSubmitRequest} className="space-y-4">
-                                                <div className="space-y-1">
-                                                    <Label htmlFor="blood-group">Blood Group</Label>
-                                                    <Select value={bloodGroup} onValueChange={setBloodGroup} disabled={isSubmitting}>
-                                                        <SelectTrigger id="blood-group">
-                                                            <SelectValue placeholder="Select Blood Group" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {bloodGroups.map(group => (
-                                                                <SelectItem key={group} value={group}>{group}</SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <Label htmlFor="hospital">Hospital Name & Location</Label>
-                                                    <Input id="hospital" value={hospitalName} onChange={e => setHospitalName(e.target.value)} placeholder="e.g., City General Hospital" disabled={isSubmitting}/>
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <Label htmlFor="contact">Contact Number</Label>
-                                                    <Input id="contact" type="tel" value={contact} onChange={e => setContact(e.target.value)} placeholder="Your phone number" disabled={isSubmitting} />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <Label htmlFor="notes">Additional Notes (Optional)</Label>
-                                                    <Textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g., Patient is in ICU, need by tomorrow." disabled={isSubmitting} />
-                                                </div>
-                                                <Button type="submit" className="w-full bg-destructive hover:bg-destructive/90" disabled={isSubmitting}>
-                                                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                                    {isSubmitting ? 'Posting...' : 'Post Request'}
-                                                </Button>
-                                            </form>
-                                        ) : (
-                                            <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
-                                                <p className="mb-4">Please log in to post a blood request.</p>
-                                                <Button asChild>
-                                                    <Link href="/login">Log In</Link>
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                                <div className="space-y-6">
-                                    {isLoading ? (
-                                        <>
-                                            <Skeleton className="h-48 w-full" />
-                                            <Skeleton className="h-48 w-full" />
-                                        </>
-                                    ) : allRequests.length > 0 ? (
-                                        allRequests.map(req => (
-                                            <RequestCard 
-                                                key={req.id} 
-                                                request={req}
-                                                isOwner={user?.uid === req.authorId}
-                                                onDelete={handleDelete}
-                                            />
-                                        ))
-                                    ) : (
-                                        <div className="text-center text-muted-foreground py-16 border-2 border-dashed rounded-lg lg:h-full flex items-center justify-center">
-                                            <p>No active blood requests at the moment.</p>
-                                        </div>
-                                    )}
-                                </div>
+                    <Card className="mb-8">
+                        <CardHeader>
+                            <CardTitle>Find a Blood Donor</CardTitle>
+                            <CardDescription>Search for registered donors by location or blood group.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid sm:grid-cols-2 gap-4">
+                                <Input 
+                                    placeholder="Search by name or location..." 
+                                    value={donorSearchTerm}
+                                    onChange={(e) => setDonorSearchTerm(e.target.value)}
+                                    className="pl-10"
+                                />
+                                <Select 
+                                    value={donorBloodGroupFilter} 
+                                    onValueChange={(value) => setDonorBloodGroupFilter(value === 'all' ? '' : value)}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Filter by Blood Group" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Blood Groups</SelectItem>
+                                        {bloodGroups.map(group => (
+                                            <SelectItem key={group} value={group}>{group}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
-                        </TabsContent>
-                         <TabsContent value="find-donors" className="mt-6">
-                            <div className="grid lg:grid-cols-2 gap-8 items-start">
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>Find a Blood Donor</CardTitle>
-                                        <CardDescription>Search for registered donors by location or blood group.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="space-y-4">
-                                        <div className="grid sm:grid-cols-2 gap-4">
-                                            <Input 
-                                                placeholder="Search by name or location..." 
-                                                value={donorSearchTerm}
-                                                onChange={(e) => setDonorSearchTerm(e.target.value)}
-                                                className="pl-10"
-                                            />
-                                            <Select 
-                                                value={donorBloodGroupFilter} 
-                                                onValueChange={(value) => setDonorBloodGroupFilter(value === 'all' ? '' : value)}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Filter by Blood Group" />
+                            <div className="space-y-4 pt-4 max-h-96 overflow-y-auto">
+                                {isDonorsLoading ? (
+                                    <>
+                                        <Skeleton className="h-20 w-full" />
+                                        <Skeleton className="h-20 w-full" />
+                                    </>
+                                ) : filteredDonors.length > 0 ? (
+                                    filteredDonors.map(donor => (
+                                        <DonorCard key={donor.uid} donor={donor} />
+                                    ))
+                                ) : (
+                                    <p className="text-center text-muted-foreground py-8">No donors found matching your criteria.</p>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <div className="grid lg:grid-cols-2 gap-8 mb-8 items-start">
+                         <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                <HeartPulse className="text-destructive"/> My Donor Profile
+                                </CardTitle>
+                                <CardDescription>Keep your information updated to help others find you.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                            {user ? (
+                                <form onSubmit={handleSaveProfile} className="space-y-4">
+                                    <div className="space-y-1">
+                                        <Label htmlFor="donor-blood-group">Your Blood Group</Label>
+                                        <Select value={donorBloodGroup} onValueChange={setDonorBloodGroup} disabled={isSavingProfile}>
+                                            <SelectTrigger id="donor-blood-group">
+                                                <SelectValue placeholder="Select Blood Group" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {bloodGroups.map(group => (
+                                                    <SelectItem key={group} value={group}>{group}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label htmlFor="donor-location">Your Location</Label>
+                                        <Input id="donor-location" value={donorLocation} onChange={e => setDonorLocation(e.target.value)} placeholder="e.g., Dhaka, Bangladesh" disabled={isSavingProfile} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label htmlFor="donor-hospitals">Nearest Hospitals</Label>
+                                        <Textarea id="donor-hospitals" value={donorHospitals} onChange={e => setDonorHospitals(e.target.value)} placeholder="List hospitals you can easily reach" disabled={isSavingProfile} />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Star className="h-5 w-5 text-yellow-400" />
+                                        <span className="text-sm text-muted-foreground">
+                                            Your rating: {user?.donorRating?.toFixed(1) || 'N/A'} ({user?.donorRatingCount || 0} reviews)
+                                        </span>
+                                    </div>
+                                    <Button type="submit" className="w-full" disabled={isSavingProfile}>
+                                        {isSavingProfile && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        Save Donor Profile
+                                    </Button>
+                                </form>
+                                ) : (
+                                     <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
+                                        <p className="mb-4">Please log in to manage your donor profile.</p>
+                                        <Button asChild>
+                                            <Link href="/login">Log In</Link>
+                                        </Button>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                         <Card>
+                            <CardHeader>
+                                <CardTitle>Request Blood</CardTitle>
+                                <CardDescription>Fill the form to post an urgent request.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {user ? (
+                                    <form onSubmit={handleSubmitRequest} className="space-y-4">
+                                        <div className="space-y-1">
+                                            <Label htmlFor="blood-group">Blood Group</Label>
+                                            <Select value={bloodGroup} onValueChange={setBloodGroup} disabled={isSubmitting}>
+                                                <SelectTrigger id="blood-group">
+                                                    <SelectValue placeholder="Select Blood Group" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="all">All Blood Groups</SelectItem>
                                                     {bloodGroups.map(group => (
                                                         <SelectItem key={group} value={group}>{group}</SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>
                                         </div>
-                                        <div className="space-y-4 pt-4">
-                                            {isDonorsLoading ? (
-                                                <>
-                                                    <Skeleton className="h-20 w-full" />
-                                                    <Skeleton className="h-20 w-full" />
-                                                    <Skeleton className="h-20 w-full" />
-                                                </>
-                                            ) : filteredDonors.length > 0 ? (
-                                                filteredDonors.map(donor => (
-                                                    <DonorCard key={donor.uid} donor={donor} />
-                                                ))
-                                            ) : (
-                                                <p className="text-center text-muted-foreground py-8">No donors found matching your criteria.</p>
-                                            )}
+                                        <div className="space-y-1">
+                                            <Label htmlFor="hospital">Hospital Name & Location</Label>
+                                            <Input id="hospital" value={hospitalName} onChange={e => setHospitalName(e.target.value)} placeholder="e.g., City General Hospital" disabled={isSubmitting}/>
                                         </div>
-                                    </CardContent>
-                                </Card>
+                                        <div className="space-y-1">
+                                            <Label htmlFor="contact">Contact Number</Label>
+                                            <Input id="contact" type="tel" value={contact} onChange={e => setContact(e.target.value)} placeholder="Your phone number" disabled={isSubmitting} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label htmlFor="notes">Additional Notes (Optional)</Label>
+                                            <Textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g., Patient is in ICU, need by tomorrow." disabled={isSubmitting} />
+                                        </div>
+                                        <Button type="submit" className="w-full bg-destructive hover:bg-destructive/90" disabled={isSubmitting}>
+                                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            {isSubmitting ? 'Posting...' : 'Post Request'}
+                                        </Button>
+                                    </form>
+                                ) : (
+                                    <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
+                                        <p className="mb-4">Please log in to post a blood request.</p>
+                                        <Button asChild>
+                                            <Link href="/login">Log In</Link>
+                                        </Button>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
 
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="flex items-center gap-2">
-                                        <HeartPulse className="text-destructive"/> My Donor Profile
-                                        </CardTitle>
-                                        <CardDescription>Keep your information updated to help others find you.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                    {user ? (
-                                        <form onSubmit={handleSaveProfile} className="space-y-4">
-                                            <div className="space-y-1">
-                                                <Label htmlFor="donor-blood-group">Your Blood Group</Label>
-                                                <Select value={donorBloodGroup} onValueChange={setDonorBloodGroup} disabled={isSavingProfile}>
-                                                    <SelectTrigger id="donor-blood-group">
-                                                        <SelectValue placeholder="Select Blood Group" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {bloodGroups.map(group => (
-                                                            <SelectItem key={group} value={group}>{group}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <Label htmlFor="donor-location">Your Location</Label>
-                                                <Input id="donor-location" value={donorLocation} onChange={e => setDonorLocation(e.target.value)} placeholder="e.g., Dhaka, Bangladesh" disabled={isSavingProfile} />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <Label htmlFor="donor-hospitals">Nearest Hospitals</Label>
-                                                <Textarea id="donor-hospitals" value={donorHospitals} onChange={e => setDonorHospitals(e.target.value)} placeholder="List hospitals you can easily reach" disabled={isSavingProfile} />
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <Star className="h-5 w-5 text-yellow-400" />
-                                                <span className="text-sm text-muted-foreground">
-                                                    Your rating: {user?.donorRating?.toFixed(1) || 'N/A'} ({user?.donorRatingCount || 0} reviews)
-                                                </span>
-                                            </div>
-                                            <Button type="submit" className="w-full" disabled={isSavingProfile}>
-                                                {isSavingProfile && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                                Save Donor Profile
-                                            </Button>
-                                        </form>
-                                        ) : (
-                                             <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
-                                                <p className="mb-4">Please log in to manage your donor profile.</p>
-                                                <Button asChild>
-                                                    <Link href="/login">Log In</Link>
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-
+                    <div>
+                        <h2 className="text-2xl font-bold mb-4 text-center">Urgent Blood Requests</h2>
+                        {isLoadingRequests ? (
+                            <div className="space-y-6">
+                                <Skeleton className="h-48 w-full" />
+                                <Skeleton className="h-48 w-full" />
                             </div>
-                         </TabsContent>
-                    </Tabs>
+                        ) : allRequests.length > 0 ? (
+                           <div className="grid md:grid-cols-2 gap-6">
+                             {allRequests.map(req => (
+                                <RequestCard 
+                                    key={req.id} 
+                                    request={req}
+                                    isOwner={user?.uid === req.authorId}
+                                    onDelete={handleDelete}
+                                />
+                            ))}
+                           </div>
+                        ) : (
+                            <div className="text-center text-muted-foreground py-16 border-2 border-dashed rounded-lg lg:h-full flex items-center justify-center">
+                                <p>No active blood requests at the moment.</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </main>
         </div>
     );
 }
+
