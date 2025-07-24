@@ -120,9 +120,10 @@ export default function RoktimPage() {
             return;
         }
         
-        const myQ = query(collection(db, 'bloodRequests'), where('authorId', '==', user.uid), orderBy('timestamp', 'desc'));
+        const myQ = query(collection(db, 'bloodRequests'), where('authorId', '==', user.uid));
         const unsubscribeMy = onSnapshot(myQ, (snapshot) => {
             const fetchedMyRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BloodRequest));
+            fetchedMyRequests.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
             setMyRequests(fetchedMyRequests);
         }, (error) => {
             console.error("Error fetching your blood requests:", error);
