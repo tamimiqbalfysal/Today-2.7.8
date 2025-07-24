@@ -22,6 +22,11 @@ export interface User {
   followers?: string[]; // Array of user UIDs
   following?: string[]; // Array of user UIDs
   defaultLocalColor?: string;
+  donorBloodGroup?: string;
+  donorLocation?: string;
+  donorNearestHospitals?: string;
+  donorRating?: number;
+  donorRatingCount?: number;
 }
 
 export interface Post {
