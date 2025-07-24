@@ -38,6 +38,10 @@ function RequestCard({ request, isOwner, onDelete }: { request: BloodRequest, is
             </CardHeader>
             <CardContent className="space-y-3">
                 <div className="flex items-center gap-3">
+                    <UserIcon className="h-5 w-5 text-muted-foreground" />
+                    <span className="font-medium">{request.authorName}</span>
+                </div>
+                <div className="flex items-center gap-3">
                     <Hospital className="h-5 w-5 text-muted-foreground" />
                     <span className="font-medium">{request.hospitalName}</span>
                 </div>
@@ -48,8 +52,7 @@ function RequestCard({ request, isOwner, onDelete }: { request: BloodRequest, is
                 {request.notes && <p className="text-sm text-muted-foreground pt-2 border-t mt-3">{request.notes}</p>}
             </CardContent>
             <CardFooter className="flex justify-between items-center text-xs text-muted-foreground">
-                <span>Posted by {request.authorName}</span>
-                <span>{formatDistanceToNow(request.timestamp.toDate(), { addSuffix: true })}</span>
+                <span>Posted {formatDistanceToNow(request.timestamp.toDate(), { addSuffix: true })}</span>
             </CardFooter>
             {isOwner && (
                  <AlertDialog>
@@ -335,12 +338,15 @@ export default function RoktimPage() {
                                             onChange={(e) => setDonorSearchTerm(e.target.value)}
                                             className="pl-10"
                                         />
-                                        <Select value={donorBloodGroupFilter} onValueChange={setDonorBloodGroupFilter}>
+                                        <Select 
+                                            value={donorBloodGroupFilter} 
+                                            onValueChange={(value) => setDonorBloodGroupFilter(value === 'all' ? '' : value)}
+                                        >
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Filter by Blood Group" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="">All Blood Groups</SelectItem>
+                                                <SelectItem value="all">All Blood Groups</SelectItem>
                                                 {bloodGroups.map(group => (
                                                     <SelectItem key={group} value={group}>{group}</SelectItem>
                                                 ))}
