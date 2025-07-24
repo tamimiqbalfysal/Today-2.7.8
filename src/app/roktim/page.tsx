@@ -186,6 +186,11 @@ export default function RoktimPage() {
         );
     }, [allDonors, donorSearchTerm, user?.uid]);
     
+    const loggedInUserDonorCard = useMemo(() => {
+        if (!user) return null;
+        return allDonors.find(d => d.uid === user.uid);
+    }, [allDonors, user]);
+    
     const handleSubmitRequest = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user) {
@@ -245,8 +250,6 @@ export default function RoktimPage() {
         });
         setIsSavingProfile(false);
     };
-    
-    const loggedInUserDonorCard = user?.donorBloodGroup ? allDonors.find(d => d.id === user.uid) : null;
 
     return (
         <div className="flex flex-col min-h-screen bg-red-50/50">
@@ -436,5 +439,3 @@ export default function RoktimPage() {
         </div>
     );
 }
-
-    
