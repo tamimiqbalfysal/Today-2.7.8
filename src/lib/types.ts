@@ -173,3 +173,14 @@ export interface OgrimPreOrder {
     userId: string | null; // if they were logged in
     timestamp: Timestamp;
 }
+
+export interface BloodRequest {
+  id: string;
+  authorId: string;
+  authorName: string;
+  bloodGroup: string;
+  hospitalName: string;
+  contact: string;
+  notes?: string;
+  timestamp: Timestamp;
+}

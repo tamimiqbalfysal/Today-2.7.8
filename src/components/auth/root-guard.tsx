@@ -14,6 +14,7 @@ const PROTECTED_ROUTES = [
   '/marketplace',
   '/tribe',
   '/office-express/create',
+  '/roktim',
 ];
 
 // Dynamic routes that are protected.
