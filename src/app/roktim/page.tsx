@@ -133,6 +133,8 @@ export default function RoktimPage() {
     const [donorBloodGroup, setDonorBloodGroup] = useState(user?.donorBloodGroup || '');
     const [donorLocation, setDonorLocation] = useState(user?.donorLocation || '');
     const [donorHospitals, setDonorHospitals] = useState(user?.donorNearestHospitals || '');
+    
+    const [searchPerformed, setSearchPerformed] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -179,6 +181,10 @@ export default function RoktimPage() {
         }
     }, [toast]);
     
+    useEffect(() => {
+      setSearchPerformed(donorSearchTerm !== '' || donorBloodGroupFilter !== '');
+    }, [donorSearchTerm, donorBloodGroupFilter]);
+
     const filteredDonors = useMemo(() => {
       return donors.filter(donor => {
         const matchesBloodGroup = donorBloodGroupFilter ? donor.donorBloodGroup === donorBloodGroupFilter : true;
@@ -250,6 +256,8 @@ export default function RoktimPage() {
         setIsSavingProfile(false);
     };
 
+    const ownDonorProfile = user ? donors.find(d => d.uid === user.uid) : undefined;
+    
     return (
         <div className="flex flex-col min-h-screen bg-red-50/50">
             <main className="flex-1 overflow-y-auto">
@@ -293,17 +301,21 @@ export default function RoktimPage() {
                                 </Select>
                             </div>
                             <div className="space-y-4 pt-4 max-h-96 overflow-y-auto">
-                                {isDonorsLoading ? (
+                                {isDonorsLoading && !searchPerformed ? (
                                     <>
                                         <Skeleton className="h-20 w-full" />
                                         <Skeleton className="h-20 w-full" />
                                     </>
-                                ) : filteredDonors.length > 0 ? (
-                                    filteredDonors.map(donor => (
-                                        <DonorCard key={donor.uid} donor={donor} />
-                                    ))
+                                ) : searchPerformed ? (
+                                    filteredDonors.length > 0 ? (
+                                        filteredDonors.map(donor => (
+                                            <DonorCard key={donor.uid} donor={donor} />
+                                        ))
+                                    ) : (
+                                        <p className="text-center text-muted-foreground py-8">No donors found matching your criteria.</p>
+                                    )
                                 ) : (
-                                    <p className="text-center text-muted-foreground py-8">No donors found matching your criteria.</p>
+                                  ownDonorProfile && <DonorCard key={ownDonorProfile.uid} donor={ownDonorProfile} />
                                 )}
                             </div>
                         </CardContent>
@@ -441,4 +453,3 @@ export default function RoktimPage() {
         </div>
     );
 }
-
