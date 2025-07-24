@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -49,30 +50,30 @@ function RequestCard({ request, isOwner, onDelete }: { request: BloodRequest, is
             </CardContent>
             <CardFooter className="flex justify-between items-center text-xs text-muted-foreground">
                 <span>Posted {formatDistanceToNow(request.timestamp.toDate(), { addSuffix: true })}</span>
+                {isOwner && (
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This will permanently delete your blood request. This action cannot be undone.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => onDelete(request.id)} className="bg-destructive hover:bg-destructive/90">
+                                    Delete
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                )}
             </CardFooter>
-            {isOwner && (
-                 <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10">
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                This will permanently delete your blood request. This action cannot be undone.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => onDelete(request.id)} className="bg-destructive hover:bg-destructive/90">
-                                Delete
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            )}
         </Card>
     );
 }
@@ -111,12 +112,10 @@ export default function RoktimPage() {
     const { toast } = useToast();
 
     const [allRequests, setAllRequests] = useState<BloodRequest[]>([]);
-    const [myRequests, setMyRequests] = useState<BloodRequest[]>([]);
     const [donors, setDonors] = useState<User[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isDonorsLoading, setIsDonorsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isSavingProfile, setIsSavingProfile] = useState(false);
     
     // Donor search states
     const [donorSearchTerm, setDonorSearchTerm] = useState('');
@@ -127,19 +126,6 @@ export default function RoktimPage() {
     const [hospitalName, setHospitalName] = useState('');
     const [contact, setContact] = useState('');
     const [notes, setNotes] = useState('');
-
-    // Donor profile states
-    const [donorBloodGroup, setDonorBloodGroup] = useState(user?.donorBloodGroup || '');
-    const [donorLocation, setDonorLocation] = useState(user?.donorLocation || '');
-    const [donorHospitals, setDonorHospitals] = useState(user?.donorNearestHospitals || '');
-
-    useEffect(() => {
-        if (user) {
-            setDonorBloodGroup(user.donorBloodGroup || '');
-            setDonorLocation(user.donorLocation || '');
-            setDonorHospitals(user.donorNearestHospitals || '');
-        }
-    }, [user]);
 
     useEffect(() => {
         if (!db) {
@@ -178,24 +164,6 @@ export default function RoktimPage() {
         }
     }, [toast]);
     
-    useEffect(() => {
-        if (!db || !user) {
-            setMyRequests([]);
-            return;
-        }
-        
-        const myQ = query(collection(db, 'bloodRequests'), where('authorId', '==', user.uid));
-        const unsubscribeMy = onSnapshot(myQ, (snapshot) => {
-            const fetchedMyRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BloodRequest));
-            fetchedMyRequests.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
-            setMyRequests(fetchedMyRequests);
-        }, (error) => {
-            console.error("Error fetching your blood requests:", error);
-        });
-
-        return () => unsubscribeMy();
-    }, [user]);
-
     const filteredDonors = useMemo(() => {
       return donors.filter(donor => {
         const matchesBloodGroup = donorBloodGroupFilter ? donor.donorBloodGroup === donorBloodGroupFilter : true;
@@ -246,25 +214,6 @@ export default function RoktimPage() {
         }
     };
     
-    const handleSaveProfile = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!user || !db) return;
-        setIsSavingProfile(true);
-        try {
-            const userRef = doc(db, 'users', user.uid);
-            await updateDoc(userRef, {
-                donorBloodGroup,
-                donorLocation,
-                donorNearestHospitals: donorHospitals,
-            });
-            toast({ title: 'Profile Saved', description: 'Your donor information has been updated.' });
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not save your profile.' });
-        } finally {
-            setIsSavingProfile(false);
-        }
-    };
-
     const handleDelete = async (id: string) => {
         if(!db) return;
         try {
@@ -291,10 +240,9 @@ export default function RoktimPage() {
                     </div>
 
                      <Tabs defaultValue="feed" className="w-full">
-                        <TabsList className="grid w-full grid-cols-3">
+                        <TabsList className="grid w-full grid-cols-2">
                             <TabsTrigger value="feed">Urgent Requests</TabsTrigger>
                             <TabsTrigger value="find-donors">Find Donors</TabsTrigger>
-                            <TabsTrigger value="profile">My Profile</TabsTrigger>
                         </TabsList>
                         <TabsContent value="feed" className="mt-6">
                             <div className="grid lg:grid-cols-2 gap-8 items-start">
@@ -416,77 +364,6 @@ export default function RoktimPage() {
                                 </CardContent>
                             </Card>
                          </TabsContent>
-                        <TabsContent value="profile" className="mt-6">
-                            <div className="space-y-8">
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>My Donor Profile</CardTitle>
-                                        <CardDescription>Keep your information updated to help others find you.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        {user ? (
-                                            <form onSubmit={handleSaveProfile} className="space-y-4">
-                                                <div className="space-y-1">
-                                                    <Label htmlFor="donor-blood-group">Your Blood Group</Label>
-                                                    <Select value={donorBloodGroup} onValueChange={setDonorBloodGroup} disabled={isSavingProfile}>
-                                                        <SelectTrigger id="donor-blood-group">
-                                                            <SelectValue placeholder="Select Blood Group" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {bloodGroups.map(group => (
-                                                                <SelectItem key={group} value={group}>{group}</SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <Label htmlFor="donor-location">Your Location</Label>
-                                                    <Input id="donor-location" value={donorLocation} onChange={e => setDonorLocation(e.target.value)} placeholder="e.g., Dhaka, Bangladesh" disabled={isSavingProfile} />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <Label htmlFor="donor-hospitals">Nearest Hospitals</Label>
-                                                    <Textarea id="donor-hospitals" value={donorHospitals} onChange={e => setDonorHospitals(e.target.value)} placeholder="List hospitals you can easily reach" disabled={isSavingProfile} />
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <Star className="h-5 w-5 text-yellow-400" />
-                                                    <span className="text-sm text-muted-foreground">
-                                                        Your rating: {user.donorRating?.toFixed(1) || 'N/A'} ({user.donorRatingCount || 0} reviews)
-                                                    </span>
-                                                </div>
-                                                <Button type="submit" className="w-full" disabled={isSavingProfile}>
-                                                    {isSavingProfile && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                                    Save Profile
-                                                </Button>
-                                            </form>
-                                        ) : (
-                                            <div className="text-center text-muted-foreground p-8">
-                                               <p>Log in to set up your donor profile.</p>
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>Your Request History</CardTitle>
-                                        <CardDescription>A record of the requests you've made.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="space-y-4">
-                                        {myRequests.length > 0 ? (
-                                            myRequests.map(req => (
-                                                <RequestCard 
-                                                    key={req.id} 
-                                                    request={req}
-                                                    isOwner={true}
-                                                    onDelete={handleDelete}
-                                                />
-                                            ))
-                                        ) : (
-                                            <p className="text-center text-muted-foreground py-8">You haven't made any requests yet.</p>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        </TabsContent>
                     </Tabs>
                 </div>
             </main>

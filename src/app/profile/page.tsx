@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { collection, query, where, orderBy, onSnapshot, doc, runTransaction, arrayUnion, arrayRemove, setDoc, updateDoc, getDoc, deleteDoc, Timestamp, getDocs, increment } from 'firebase/firestore';
 import { ref, deleteObject, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useAuth } from '@/contexts/auth-context';
-import type { User, Post } from '@/lib/types';
+import type { User, Post, BloodRequest } from '@/lib/types';
 import { db, storage } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,7 +15,68 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PostFeed } from '@/components/fintrack/recent-transactions';
 import { addDoc } from 'firebase/firestore';
 import { Input } from '@/components/ui/input';
-import { Search } from 'lucide-react';
+import { Search, HeartPulse, Droplets, Hospital, Phone, Trash2, Loader2, Star } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { formatDistanceToNow } from 'date-fns';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+
+
+const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+
+function RequestCard({ request, onDelete }: { request: BloodRequest, onDelete: (id: string) => void }) {
+    return (
+        <Card className="w-full relative">
+            <CardHeader className="flex-row items-start gap-4 space-y-0">
+                <div className="bg-destructive/10 p-3 rounded-full">
+                    <Droplets className="h-8 w-8 text-destructive" />
+                </div>
+                <div>
+                    <CardTitle className="text-2xl font-bold text-destructive">{request.bloodGroup}</CardTitle>
+                    <CardDescription>{request.authorName}</CardDescription>
+                </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+                <div className="flex items-center gap-3">
+                    <Hospital className="h-5 w-5 text-muted-foreground" />
+                    <span className="font-medium">{request.hospitalName}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                    <Phone className="h-5 w-5 text-muted-foreground" />
+                    <a href={`tel:${request.contact}`} className="font-medium hover:underline">{request.contact}</a>
+                </div>
+                {request.notes && <p className="text-sm text-muted-foreground pt-2 border-t mt-3">{request.notes}</p>}
+            </CardContent>
+            <CardFooter className="flex justify-between items-center text-xs text-muted-foreground">
+                <span>Posted {formatDistanceToNow(request.timestamp.toDate(), { addSuffix: true })}</span>
+                 <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This will permanently delete your blood request. This action cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => onDelete(request.id)} className="bg-destructive hover:bg-destructive/90">
+                                Delete
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </CardFooter>
+        </Card>
+    );
+}
 
 function ProfileSkeleton() {
     return (
@@ -34,12 +95,27 @@ function ProfileSkeleton() {
 }
 
 export default function ProfilePage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, updateUserPreferences, loading: authLoading } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
+  const [myRequests, setMyRequests] = useState<BloodRequest[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Donor profile states
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [donorBloodGroup, setDonorBloodGroup] = useState(user?.donorBloodGroup || '');
+  const [donorLocation, setDonorLocation] = useState(user?.donorLocation || '');
+  const [donorHospitals, setDonorHospitals] = useState(user?.donorNearestHospitals || '');
+
+  useEffect(() => {
+    if (user) {
+        setDonorBloodGroup(user.donorBloodGroup || '');
+        setDonorLocation(user.donorLocation || '');
+        setDonorHospitals(user.donorNearestHospitals || '');
+    }
+  }, [user]);
+
   useEffect(() => {
     if (!user || !db) {
         setIsDataLoading(false);
@@ -47,51 +123,40 @@ export default function ProfilePage() {
     }
 
     setIsDataLoading(true);
-    const postsCol = collection(db, 'posts');
     
+    // Fetch Posts
+    const postsCol = collection(db, 'posts');
     const authoredPostsQuery = query(postsCol, where("authorId", "==", user.uid));
     const likedPostsQuery = query(postsCol, where("likes", "array-contains", user.uid));
     const laughedPostsQuery = query(postsCol, where("laughs", "array-contains", user.uid));
 
     const unsubAuthored = onSnapshot(authoredPostsQuery, (authoredSnapshot) => {
         const authoredPosts = authoredSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
-        
         const unsubLiked = onSnapshot(likedPostsQuery, (likedSnapshot) => {
             const likedPosts = likedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
-            
             const unsubLaughed = onSnapshot(laughedPostsQuery, (laughedSnapshot) => {
                 const laughedPosts = laughedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
-                
                 const allPosts = [...authoredPosts, ...likedPosts, ...laughedPosts];
                 const uniquePosts = Array.from(new Map(allPosts.map(p => [p.id, p])).values());
-                
                 uniquePosts.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
-                
                 setPosts(uniquePosts);
                 setIsDataLoading(false);
-            }, (error) => {
-                console.error("Error fetching laughed posts:", error);
-                toast({ variant: "destructive", title: "Error", description: "Could not load reacted posts." });
-                setIsDataLoading(false);
-            });
-
+            }, (error) => { console.error("Error fetching laughed posts:", error); });
             return () => unsubLaughed();
-        }, (error) => {
-            console.error("Error fetching liked posts:", error);
-            toast({ variant: "destructive", title: "Error", description: "Could not load liked posts." });
-            setIsDataLoading(false);
-        });
-
+        }, (error) => { console.error("Error fetching liked posts:", error); });
         return () => unsubLiked();
-    }, (error) => {
-        console.error("Error fetching user posts:", error);
-        toast({ variant: "destructive", title: "Error", description: "Could not load your posts." });
-        setIsDataLoading(false);
-    });
+    }, (error) => { console.error("Error fetching user posts:", error); });
 
+    // Fetch Blood Requests
+    const myQ = query(collection(db, 'bloodRequests'), where('authorId', '==', user.uid), orderBy('timestamp', 'desc'));
+    const unsubscribeMy = onSnapshot(myQ, (snapshot) => {
+        const fetchedMyRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BloodRequest));
+        setMyRequests(fetchedMyRequests);
+    }, (error) => { console.error("Error fetching your blood requests:", error); });
 
     return () => {
         unsubAuthored();
+        unsubscribeMy();
     };
   }, [user, toast]);
   
@@ -105,6 +170,29 @@ export default function ProfilePage() {
   if (authLoading || (isDataLoading && user)) {
     return <ProfileSkeleton />;
   }
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingProfile(true);
+    await updateUserPreferences({
+        donorBloodGroup,
+        donorLocation,
+        donorNearestHospitals: donorHospitals,
+    });
+    setIsSavingProfile(false);
+  };
+
+  const handleDeleteRequest = async (id: string) => {
+    if(!db) return;
+    try {
+        await deleteDoc(doc(db, 'bloodRequests', id));
+        toast({ title: 'Request Deleted', description: 'Your blood request has been removed.' });
+    } catch (error) {
+        console.error("Error deleting request:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not delete the request.' });
+    }
+  };
+
 
   const handleReaction = async (postId: string, authorId: string, reaction: 'like' | 'laugh') => {
     if (!user || !db) return;
@@ -179,17 +267,14 @@ export default function ProfilePage() {
     if (!user || !db) return;
     try {
       await runTransaction(db, async (transaction) => {
-        // READ FIRST
-        let originalAuthorId: string | undefined;
-        if (sharedPostId) {
-            const sharedPostRef = doc(db, 'posts', sharedPostId);
-            const sharedPostDoc = await transaction.get(sharedPostRef);
-            if (sharedPostDoc.exists()) {
-                originalAuthorId = sharedPostDoc.data().authorId;
-            }
-        }
+        const sharedPostRef = doc(db, 'posts', sharedPostId);
+        const sharedPostDoc = await transaction.get(sharedPostRef);
         
-        // NOW PREPARE WRITES
+        let originalAuthorId: string | undefined;
+        if (sharedPostDoc.exists()) {
+            originalAuthorId = sharedPostDoc.data().authorId;
+        }
+
         const newPostData = {
           authorId: user.uid,
           authorName: user.name,
@@ -247,6 +332,72 @@ export default function ProfilePage() {
                 <ProfileCard user={user!} isOwnProfile={true} />
              </div>
              
+            <div className="space-y-8 mt-8">
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                           <HeartPulse className="text-destructive"/> My Donor Profile
+                        </CardTitle>
+                        <CardDescription>Keep your information updated to help others find you.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={handleSaveProfile} className="space-y-4">
+                            <div className="space-y-1">
+                                <Label htmlFor="donor-blood-group">Your Blood Group</Label>
+                                <Select value={donorBloodGroup} onValueChange={setDonorBloodGroup} disabled={isSavingProfile}>
+                                    <SelectTrigger id="donor-blood-group">
+                                        <SelectValue placeholder="Select Blood Group" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {bloodGroups.map(group => (
+                                            <SelectItem key={group} value={group}>{group}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-1">
+                                <Label htmlFor="donor-location">Your Location</Label>
+                                <Input id="donor-location" value={donorLocation} onChange={e => setDonorLocation(e.target.value)} placeholder="e.g., Dhaka, Bangladesh" disabled={isSavingProfile} />
+                            </div>
+                            <div className="space-y-1">
+                                <Label htmlFor="donor-hospitals">Nearest Hospitals</Label>
+                                <Textarea id="donor-hospitals" value={donorHospitals} onChange={e => setDonorHospitals(e.target.value)} placeholder="List hospitals you can easily reach" disabled={isSavingProfile} />
+                            </div>
+                             <div className="flex items-center gap-2">
+                                <Star className="h-5 w-5 text-yellow-400" />
+                                <span className="text-sm text-muted-foreground">
+                                    Your rating: {user?.donorRating?.toFixed(1) || 'N/A'} ({user?.donorRatingCount || 0} reviews)
+                                </span>
+                            </div>
+                            <Button type="submit" className="w-full" disabled={isSavingProfile}>
+                                {isSavingProfile && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Save Donor Profile
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Your Request History</CardTitle>
+                        <CardDescription>A record of the blood requests you've made.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {myRequests.length > 0 ? (
+                            myRequests.map(req => (
+                                <RequestCard 
+                                    key={req.id} 
+                                    request={req}
+                                    onDelete={handleDeleteRequest}
+                                />
+                            ))
+                        ) : (
+                            <p className="text-center text-muted-foreground py-8">You haven't made any requests yet.</p>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+
              <div className="mt-8 mb-4 max-w-lg mx-auto">
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -274,4 +425,3 @@ export default function ProfilePage() {
         </div>
   );
 }
-
