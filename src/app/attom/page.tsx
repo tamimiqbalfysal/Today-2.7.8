@@ -107,11 +107,6 @@ function ProductCard({ product }: { product: Product }) {
       </CardContent>
       <div className="p-4 pt-0 mt-auto">
         <div className="flex flex-col gap-2">
-             <Button asChild variant="outline" className="w-full">
-              <Link href={product.category === 'Ogrim' ? `/ogrim/${product.id}` : `/attom/${product.id}`}>
-                <Info className="mr-2 h-4 w-4" /> Details
-              </Link>
-            </Button>
             {product.category === 'Ogrim' ? (
                 <Button asChild className="w-full">
                     <Link href={`/ogrim/${product.id}`}>
@@ -338,6 +333,3 @@ export default function AttomPage() {
       </div>
   );
 }
-
-
-    
