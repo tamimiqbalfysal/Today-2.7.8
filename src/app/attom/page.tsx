@@ -58,7 +58,7 @@ function ProductCard({ product }: { product: Product }) {
   return (
     <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex flex-col">
       <CardContent className="p-0">
-        <Link href={`/ogrim/${product.id}`} className="block">
+        <Link href={`/attom/${product.id}`} className="block">
           <div className="relative aspect-square bg-black">
             {displayMedia.url && (
               displayMedia.type === 'image' ? (
@@ -135,7 +135,7 @@ export default function AttomPage() {
             const categoriesToFetch = ['Tribe', 'Gift Garden', 'Video Bazaar', 'Ogrim'];
             
             const productPromises = categoriesToFetch.map(category => {
-                const q = query(collection(db, 'posts'), where('category', '==', category));
+                const q = query(collection(db, 'posts'), where('category', '==', category), orderBy('timestamp', 'desc'));
                 return getDocs(q);
             });
             
@@ -148,11 +148,13 @@ export default function AttomPage() {
                 });
             });
             
+            // This sort is now redundant if individual queries are ordered, but good for safety
             fetchedProducts.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
             
             setProducts(fetchedProducts);
         } catch (error) {
             console.error("Error fetching products:", error);
+            // This toast is important for debugging permission issues.
             toast({
                 variant: "destructive",
                 title: "Error",
@@ -326,3 +328,4 @@ export default function AttomPage() {
       </div>
   );
 }
+
