@@ -212,7 +212,7 @@ export default function AttomPage() {
                 <Link href="/orgrim">Orgrim</Link>
               </Button>
               <Button asChild variant="outline">
-                <Link href="/secondsell">Secondsell</Link>
+                <Link href="/secondsell">Second Sell</Link>
               </Button>
               <Button asChild variant="outline">
                 <Link href="/video-bazaar">Video Bazaar</Link>
