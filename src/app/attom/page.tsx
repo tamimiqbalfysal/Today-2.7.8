@@ -58,7 +58,7 @@ function ProductCard({ product }: { product: Product }) {
   return (
     <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex flex-col">
       <CardContent className="p-0">
-        <Link href={product.category === 'Ogrim' ? `/ogrim/${product.id}` : `/attom/${product.id}`} className="block">
+        <Link href={`/ogrim/${product.id}`} className="block">
           <div className="relative aspect-square bg-black">
             {displayMedia.url && (
               displayMedia.type === 'image' ? (
@@ -89,7 +89,7 @@ function ProductCard({ product }: { product: Product }) {
                 <AvatarImage src={product.authorPhotoURL} />
                 <AvatarFallback>{product.authorName.charAt(0)}</AvatarFallback>
               </Avatar>
-              <span className="text-xs font-medium text-muted-foreground">{product.authorName}</span>
+              <span className="text-xs font-medium text-muted-foreground">{product.sellerName || product.authorName}</span>
             </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center">
@@ -107,17 +107,11 @@ function ProductCard({ product }: { product: Product }) {
       </CardContent>
       <div className="p-4 pt-0 mt-auto">
         <div className="flex flex-col gap-2">
-            {product.category === 'Ogrim' ? (
-                <Button asChild className="w-full">
-                    <Link href={`/ogrim/${product.id}`}>
-                        <ShoppingCart className="mr-2 h-4 w-4" /> Pre-Order
-                    </Link>
-                </Button>
-            ) : (
-                <Button className="w-full" onClick={handleAddToCart}>
-                  <ShoppingCart className="mr-2 h-4 w-4" /> Add to Cart
-                </Button>
-            )}
+            <Button asChild className="w-full">
+                <Link href={`/ogrim/${product.id}`}>
+                    <ShoppingCart className="mr-2 h-4 w-4" /> Pre-Order
+                </Link>
+            </Button>
         </div>
       </div>
     </Card>
@@ -128,7 +122,7 @@ export default function AttomPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilters, setActiveFilters] = useState<string[]>(['Tribe', 'Gift Garden', 'Video Bazaar', 'Ogrim']);
+  const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
@@ -141,7 +135,7 @@ export default function AttomPage() {
             const categoriesToFetch = ['Tribe', 'Gift Garden', 'Video Bazaar', 'Ogrim'];
             
             const productPromises = categoriesToFetch.map(category => {
-                const q = query(collection(db, 'posts'), where('category', '==', category));
+                const q = query(collection(db, 'posts'), where('category', '==', category), orderBy('timestamp', 'desc'));
                 return getDocs(q);
             });
             
@@ -159,10 +153,12 @@ export default function AttomPage() {
             setProducts(fetchedProducts);
         } catch (error) {
             console.error("Error fetching products:", error);
+            // This toast is important for debugging permission issues.
             toast({
                 variant: "destructive",
                 title: "Error",
-                description: "Could not load products.",
+                description: "Could not load products. Check console for details.",
+                duration: 9000
             });
         } finally {
             setIsLoadingProducts(false);
@@ -178,8 +174,6 @@ export default function AttomPage() {
     
     if (activeFilters.length > 0) {
         productsToShow = productsToShow.filter(p => activeFilters.includes(p.category || ''));
-    } else {
-        productsToShow = [];
     }
     
     if (user?.country) {

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -72,7 +73,7 @@ export default function OgrimProductPage() {
     }
 
     if (checkEmail) {
-      const q = collection(db, `ogrim-products/${productId}/preorders`);
+      const q = collection(db, `posts/${productId}/preorders`);
       const snapshot = await getDocs(q);
       const isAlreadyRegistered = snapshot.docs.some(doc => doc.data().customerEmail === checkEmail);
       if(isAlreadyRegistered) {
@@ -97,7 +98,7 @@ export default function OgrimProductPage() {
 
     setIsLoading(true);
 
-    const productDocRef = doc(db, 'ogrim-products', productId);
+    const productDocRef = doc(db, 'posts', productId);
     const unsubscribeProduct = onSnapshot(productDocRef, (doc) => {
       if (doc.exists()) {
         setProduct({ id: doc.id, ...doc.data() } as OgrimProduct);
@@ -105,7 +106,7 @@ export default function OgrimProductPage() {
       setIsLoading(false);
     });
     
-    const preordersColRef = collection(db, `ogrim-products/${productId}/preorders`);
+    const preordersColRef = collection(db, `posts/${productId}/preorders`);
     const unsubscribePreorders = onSnapshot(preordersColRef, (snapshot) => {
       setPreOrderCount(snapshot.size);
     });
@@ -142,7 +143,7 @@ export default function OgrimProductPage() {
         timestamp: Timestamp.now(),
       };
       
-      await addDoc(collection(db, `ogrim-products/${productId}/preorders`), newPreOrder);
+      await addDoc(collection(db, `posts/${productId}/preorders`), newPreOrder);
       
       toast({ title: 'Pre-order Confirmed!', description: `Your pre-order for ${product.title} has been received.` });
       
@@ -189,7 +190,7 @@ export default function OgrimProductPage() {
             <div className="space-y-6">
                <div className="relative w-full aspect-video rounded-lg overflow-hidden border">
                 <Image
-                  src={product.imageUrl || 'https://placehold.co/800x450.png'}
+                  src={product.mediaURL || 'https://placehold.co/800x450.png'}
                   alt={product.title}
                   fill
                   className="object-cover"
