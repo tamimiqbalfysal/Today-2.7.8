@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -10,105 +11,39 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { db, storage } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, query, onSnapshot, orderBy, doc, Timestamp, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, onSnapshot, orderBy, doc, Timestamp, deleteDoc, where } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import type { OgrimProduct, PreOrder } from '@/lib/types';
+import type { Post as Product } from '@/lib/types';
 import Image from 'next/image';
-import { Upload, Trash2, X, ShoppingBag, Send, Loader2 } from 'lucide-react';
+import { Upload, Trash2, X, ShoppingBag, Send, Loader2, Info } from 'lucide-react';
 import Link from 'next/link';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose, DialogFooter } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useCart } from '@/contexts/cart-context';
 
-function PreOrderDialog({ product, trigger }: { product: OgrimProduct, trigger: React.ReactNode }) {
-    const { user } = useAuth();
-    const { toast } = useToast();
-    const [name, setName] = useState('');
-    const [email, setEmail] = useState('');
-    const [phone, setPhone] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isOpen, setIsOpen] = useState(false);
+function ProductCard({ product, onDelete, isOwner }: { product: Product, onDelete: (productId: string, mediaUrl: string) => void, isOwner: boolean }) {
+  const { addToCart } = useCart();
+  const { toast } = useToast();
+  
+  const handleAddToCart = () => {
+    addToCart(product, 1);
+    toast({
+      title: 'Added to Cart',
+      description: `${product.authorName} has been added to your cart.`,
+    });
+  };
 
-    useEffect(() => {
-        if (user) {
-            setName(user.name);
-            setEmail(user.email);
-        }
-    }, [user, isOpen]);
+  const priceMatch = product.content.match(/(\d+(\.\d+)?)$/);
+  const price = priceMatch ? parseFloat(priceMatch[1]).toFixed(2) : '0.00';
 
-    const handlePreOrderSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!name || !email || !phone) {
-            toast({ variant: 'destructive', title: 'Missing Information', description: 'Please fill out all fields.' });
-            return;
-        }
-        setIsSubmitting(true);
-        try {
-            await addDoc(collection(db, `ogrim-products/${product.id}/preorders`), {
-                productId: product.id,
-                customerName: name,
-                customerEmail: email,
-                customerPhone: phone,
-                userId: user?.uid || null,
-                timestamp: Timestamp.now(),
-            });
-            toast({ title: 'Pre-order Placed!', description: "We've received your confirmation. The seller will be in touch." });
-            setIsOpen(false);
-        } catch (error) {
-            console.error(error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not place your pre-order.' });
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>{trigger}</DialogTrigger>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Pre-order: {product.title}</DialogTitle>
-                    <DialogDescription>
-                        Confirm your interest by providing your contact details below. No payment is required at this time.
-                    </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handlePreOrderSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="name">Full Name</Label>
-                        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your full name" required />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="email">Email Address</Label>
-                        <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Your email address" required />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="phone">Phone Number</Label>
-                        <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Your phone number" required />
-                    </div>
-                    <DialogFooter>
-                        <DialogClose asChild>
-                            <Button type="button" variant="secondary">Cancel</Button>
-                        </DialogClose>
-                        <Button type="submit" disabled={isSubmitting}>
-                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                            Confirm Pre-order
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-
-function ProductCard({ product, onDelete, isOwner }: { product: OgrimProduct, onDelete: (productId: string, imagePath: string) => void, isOwner: boolean }) {
   return (
     <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex flex-col group">
         <div className="relative">
             <div className="relative aspect-video">
                 <Image
-                    src={product.imageUrl || 'https://placehold.co/400x225.png'}
-                    alt={product.title}
+                    src={product.mediaURL || 'https://placehold.co/400x225.png'}
+                    alt={product.authorName}
                     fill
                     className="object-cover"
                 />
@@ -129,7 +64,7 @@ function ProductCard({ product, onDelete, isOwner }: { product: OgrimProduct, on
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => onDelete(product.id, product.imagePath)} className="bg-destructive hover:bg-destructive/90">
+                            <AlertDialogAction onClick={() => onDelete(product.id, product.mediaURL || '')} className="bg-destructive hover:bg-destructive/90">
                                 Delete
                             </AlertDialogAction>
                         </AlertDialogFooter>
@@ -138,18 +73,21 @@ function ProductCard({ product, onDelete, isOwner }: { product: OgrimProduct, on
              )}
         </div>
          <CardHeader>
-             <CardTitle className="truncate">{product.title}</CardTitle>
-             <CardDescription className="line-clamp-2 h-10">{product.description}</CardDescription>
+             <CardTitle className="truncate">{product.authorName}</CardTitle>
+             <CardDescription className="line-clamp-2 h-10">{product.content.replace(/(\d+(\.\d+)?)$/, '').trim()}</CardDescription>
          </CardHeader>
          <CardContent className="flex-grow">
-            <p className="text-2xl font-bold text-primary">${product.price.toFixed(2)}</p>
+            <p className="text-2xl font-bold text-primary">${price}</p>
          </CardContent>
-         <CardFooter>
-            <PreOrderDialog product={product} trigger={
-                 <Button className="w-full">
-                    <ShoppingBag className="mr-2 h-4 w-4" /> Pre-order Now
-                </Button>
-            } />
+         <CardFooter className="flex flex-col gap-2">
+            <Button asChild variant="outline" className="w-full">
+              <Link href={`/attom/${product.id}`}>
+                <Info className="mr-2 h-4 w-4" /> Details
+              </Link>
+            </Button>
+            <Button className="w-full" onClick={handleAddToCart}>
+                <ShoppingBag className="mr-2 h-4 w-4" /> Add to Cart
+            </Button>
          </CardFooter>
     </Card>
   );
@@ -166,19 +104,19 @@ export default function OgrimPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [products, setProducts] = useState<OgrimProduct[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
   useEffect(() => {
     if (!db) return;
     setIsLoadingProducts(true);
 
-    const productsCollection = collection(db, 'ogrim-products');
-    const q = query(productsCollection, orderBy('timestamp', 'desc'));
+    const productsCollection = collection(db, 'posts');
+    const q = query(productsCollection, where("category", "==", "Ogrim"), orderBy('timestamp', 'desc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const fetchedProducts = snapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() } as OgrimProduct));
+            .map(doc => ({ id: doc.id, ...doc.data() } as Product));
         setProducts(fetchedProducts);
         setIsLoadingProducts(false);
     }, (error) => {
@@ -206,18 +144,18 @@ export default function OgrimPage() {
   };
 
 
-  const handleDeleteProduct = async (productId: string, imagePath: string) => {
+  const handleDeleteProduct = async (productId: string, mediaUrl: string) => {
     if (!db || !storage || !user) return;
     
     try {
-        await deleteDoc(doc(db, 'ogrim-products', productId));
-        if (imagePath) {
-            const storageRef = ref(storage, imagePath);
+        await deleteDoc(doc(db, 'posts', productId));
+        if (mediaUrl) {
+            const storageRef = ref(storage, mediaUrl);
             await deleteObject(storageRef).catch(err => {
                 if (err.code !== 'storage/object-not-found') throw err;
             });
         }
-        toast({ title: 'Success', description: 'Pre-order product deleted successfully.' });
+        toast({ title: 'Success', description: 'Product deleted successfully.' });
     } catch (error: any) {
         console.error("Error deleting product:", error);
         toast({ variant: 'destructive', title: 'Deletion Failed', description: 'Could not delete the product.' });
@@ -235,23 +173,29 @@ export default function OgrimPage() {
     try {
       if (!storage || !db) throw new Error("Firebase not configured");
       
-      const imagePath = `ogrim-products/${user.uid}/${Date.now()}_${imageFile.name}`;
-      const imageRef = ref(storage, imagePath);
-      await uploadBytes(imageRef, imageFile);
-      const imageUrl = await getDownloadURL(imageRef);
+      const storageRef = ref(storage, `products/${user.uid}/${Date.now()}_${imageFile.name}`);
+      await uploadBytes(storageRef, imageFile);
+      const imageUrl = await getDownloadURL(storageRef);
 
-      await addDoc(collection(db, `ogrim-products`), {
-        sellerId: user.uid,
-        sellerName: user.name,
-        title,
-        description,
-        price: parseFloat(price),
-        imageUrl,
-        imagePath,
+      await addDoc(collection(db, `posts`), {
+        authorId: user.uid,
+        authorName: title,
+        authorPhotoURL: user.photoURL,
+        content: `${description}\n${parseFloat(price)}`,
         timestamp: Timestamp.now(),
+        media: [{ url: imageUrl, type: 'image' }],
+        mediaURL: imageUrl,
+        mediaType: 'image',
+        type: 'original',
+        category: 'Ogrim',
+        likes: [],
+        laughs: [],
+        comments: [],
+        reviewCount: 0,
+        averageRating: 0,
       });
       
-      toast({ title: 'Success!', description: 'Your product has been listed for pre-order.' });
+      toast({ title: 'Success!', description: 'Your product has been listed for sale.' });
       
       setTitle('');
       setDescription('');
@@ -274,7 +218,7 @@ export default function OgrimPage() {
               Ogrim Pre-orders
             </h1>
             <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-              Exclusive access to upcoming products. Pre-order now to secure yours.
+              Exclusive access to upcoming products. List your product for pre-order now.
             </p>
           </div>
 
@@ -343,7 +287,7 @@ export default function OgrimPage() {
               ) : products.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {products.map(product => (
-                      <ProductCard key={product.id} product={product} onDelete={handleDeleteProduct} isOwner={user?.uid === product.sellerId} />
+                      <ProductCard key={product.id} product={product} onDelete={handleDeleteProduct} isOwner={user?.uid === product.authorId} />
                     ))}
                 </div>
               ) : (

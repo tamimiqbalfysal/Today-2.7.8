@@ -114,7 +114,7 @@ export default function AttomPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilters, setActiveFilters] = useState<string[]>(['Tribe', 'Gift Garden', 'Video Bazaar']);
+  const [activeFilters, setActiveFilters] = useState<string[]>(['Tribe', 'Gift Garden', 'Video Bazaar', 'Ogrim']);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
@@ -129,7 +129,7 @@ export default function AttomPage() {
         id: doc.id,
         ...doc.data()
       } as Product))
-      .filter(p => ['Tribe', 'Gift Garden', 'Video Bazaar'].includes(p.category || ''))
+      .filter(p => ['Tribe', 'Gift Garden', 'Video Bazaar', 'Ogrim'].includes(p.category || ''))
       .sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
       
       setProducts(fetchedProducts);
@@ -268,6 +268,12 @@ export default function AttomPage() {
                             onCheckedChange={() => handleFilterChange('Video Bazaar')}
                         >
                             Video Bazaar
+                        </DropdownMenuCheckboxItem>
+                        <DropdownMenuCheckboxItem
+                            checked={activeFilters.includes('Ogrim')}
+                            onCheckedChange={() => handleFilterChange('Ogrim')}
+                        >
+                            Ogrim
                         </DropdownMenuCheckboxItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
