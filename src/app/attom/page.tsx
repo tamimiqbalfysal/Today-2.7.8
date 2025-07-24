@@ -209,7 +209,7 @@ export default function AttomPage() {
                 <Link href="/gift-garden">Gift Garden</Link>
               </Button>
               <Button asChild variant="outline">
-                <Link href="/orgrim">Orgrim</Link>
+                <Link href="/ogrim">Ogrim</Link>
               </Button>
               <Button asChild variant="outline">
                 <Link href="/secondsell">Second Sell</Link>
