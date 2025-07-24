@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { doc, onSnapshot, collection, addDoc, Timestamp } from 'firebase/firestore';
+import { doc, onSnapshot, collection, addDoc, Timestamp, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { OgrimProduct, OgrimPreOrder } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
