@@ -76,51 +76,16 @@ function RequestCard({ request, isOwner, onDelete }: { request: BloodRequest, is
     );
 }
 
-function DonorCard({ donor }: { donor: User }) {
-  return (
-    <Card>
-      <CardContent className="p-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Avatar>
-            <AvatarImage src={donor.photoURL || undefined} alt={donor.name} />
-            <AvatarFallback>{donor.name.charAt(0)}</AvatarFallback>
-          </Avatar>
-          <div>
-            <p className="font-semibold">{donor.name}</p>
-            <p className="text-sm text-muted-foreground">{donor.donorLocation}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="text-center">
-            <p className="font-bold text-lg text-destructive">{donor.donorBloodGroup}</p>
-            <p className="text-xs text-muted-foreground">Blood Group</p>
-          </div>
-          <Button asChild size="sm">
-            <Link href={`/chat/${donor.uid}`}>
-              <MessageSquare className="mr-2 h-4 w-4" />
-              Chat
-            </Link>
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-
 export default function RoktimPage() {
     const { user, updateUserPreferences } = useAuth();
     const { toast } = useToast();
 
     const [allRequests, setAllRequests] = useState<BloodRequest[]>([]);
-    const [donors, setDonors] = useState<User[]>([]);
     const [isLoadingRequests, setIsLoadingRequests] = useState(true);
-    const [isDonorsLoading, setIsDonorsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    // Donor search states
-    const [donorSearchTerm, setDonorSearchTerm] = useState('');
-    const [donorBloodGroupFilter, setDonorBloodGroupFilter] = useState('');
+    // Filter for urgent requests
+    const [requestBloodGroupFilter, setRequestBloodGroupFilter] = useState('');
 
     // Form states
     const [bloodGroup, setBloodGroup] = useState('');
@@ -134,8 +99,6 @@ export default function RoktimPage() {
     const [donorLocation, setDonorLocation] = useState(user?.donorLocation || '');
     const [donorHospitals, setDonorHospitals] = useState(user?.donorNearestHospitals || '');
     
-    const [searchPerformed, setSearchPerformed] = useState(false);
-
     useEffect(() => {
         if (user) {
             setDonorBloodGroup(user.donorBloodGroup || '');
@@ -147,7 +110,6 @@ export default function RoktimPage() {
     useEffect(() => {
         if (!db) {
             setIsLoadingRequests(false);
-            setIsDonorsLoading(false);
             return;
         }
         
@@ -164,37 +126,17 @@ export default function RoktimPage() {
             setIsLoadingRequests(false);
         });
 
-        const donorsQuery = query(collection(db, 'users'), where('donorBloodGroup', '!=', null));
-        const unsubscribeDonors = onSnapshot(donorsQuery, (snapshot) => {
-            const fetchedDonors = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
-            setDonors(fetchedDonors);
-            setIsDonorsLoading(false);
-        }, (error) => {
-            console.error("Error fetching donors:", error);
-            setIsDonorsLoading(false);
-        });
-
-
         return () => {
           unsubscribe();
-          unsubscribeDonors();
         }
     }, [toast]);
-    
-    useEffect(() => {
-      setSearchPerformed(donorSearchTerm !== '' || donorBloodGroupFilter !== '');
-    }, [donorSearchTerm, donorBloodGroupFilter]);
 
-    const filteredDonors = useMemo(() => {
-      return donors.filter(donor => {
-        const matchesBloodGroup = donorBloodGroupFilter ? donor.donorBloodGroup === donorBloodGroupFilter : true;
-        const matchesSearchTerm = donorSearchTerm ? 
-          (donor.name.toLowerCase().includes(donorSearchTerm.toLowerCase()) || 
-           donor.donorLocation?.toLowerCase().includes(donorSearchTerm.toLowerCase()))
-          : true;
-        return matchesBloodGroup && matchesSearchTerm;
-      });
-    }, [donors, donorSearchTerm, donorBloodGroupFilter]);
+    const filteredRequests = useMemo(() => {
+      if (!requestBloodGroupFilter) {
+        return allRequests;
+      }
+      return allRequests.filter(req => req.bloodGroup === requestBloodGroupFilter);
+    }, [allRequests, requestBloodGroupFilter]);
     
     const handleSubmitRequest = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -256,8 +198,6 @@ export default function RoktimPage() {
         setIsSavingProfile(false);
     };
 
-    const ownDonorProfile = user ? donors.find(d => d.uid === user.uid) : undefined;
-    
     return (
         <div className="flex flex-col min-h-screen bg-red-50/50">
             <main className="flex-1 overflow-y-auto">
@@ -271,55 +211,6 @@ export default function RoktimPage() {
                             Connect with donors. Save a life. Post an urgent request for blood.
                         </p>
                     </div>
-
-                    <Card className="mb-8">
-                        <CardHeader>
-                            <CardTitle>Find a Blood Donor</CardTitle>
-                            <CardDescription>Search for registered donors by location or blood group.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="grid sm:grid-cols-2 gap-4">
-                                <Input 
-                                    placeholder="Search by name or location..." 
-                                    value={donorSearchTerm}
-                                    onChange={(e) => setDonorSearchTerm(e.target.value)}
-                                    className="pl-10"
-                                />
-                                <Select 
-                                    value={donorBloodGroupFilter} 
-                                    onValueChange={(value) => setDonorBloodGroupFilter(value === 'all' ? '' : value)}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Filter by Blood Group" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Blood Groups</SelectItem>
-                                        {bloodGroups.map(group => (
-                                            <SelectItem key={group} value={group}>{group}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-4 pt-4 max-h-96 overflow-y-auto">
-                                {isDonorsLoading && !searchPerformed ? (
-                                    <>
-                                        <Skeleton className="h-20 w-full" />
-                                        <Skeleton className="h-20 w-full" />
-                                    </>
-                                ) : searchPerformed ? (
-                                    filteredDonors.length > 0 ? (
-                                        filteredDonors.map(donor => (
-                                            <DonorCard key={donor.uid} donor={donor} />
-                                        ))
-                                    ) : (
-                                        <p className="text-center text-muted-foreground py-8">No donors found matching your criteria.</p>
-                                    )
-                                ) : (
-                                  ownDonorProfile && <DonorCard key={ownDonorProfile.uid} donor={ownDonorProfile} />
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
 
                     <div className="grid lg:grid-cols-2 gap-8 mb-8 items-start">
                          <Card>
@@ -425,15 +316,31 @@ export default function RoktimPage() {
                     </div>
 
                     <div>
-                        <h2 className="text-2xl font-bold mb-4 text-center">Urgent Blood Requests</h2>
+                         <h2 className="text-2xl font-bold mb-4 text-center">Urgent Blood Requests</h2>
+                        <div className="mb-6 max-w-sm mx-auto">
+                            <Select 
+                                value={requestBloodGroupFilter} 
+                                onValueChange={(value) => setRequestBloodGroupFilter(value === 'all' ? '' : value)}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Filter by Blood Group" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Blood Groups</SelectItem>
+                                    {bloodGroups.map(group => (
+                                        <SelectItem key={group} value={group}>{group}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                         {isLoadingRequests ? (
                             <div className="space-y-6">
                                 <Skeleton className="h-48 w-full" />
                                 <Skeleton className="h-48 w-full" />
                             </div>
-                        ) : allRequests.length > 0 ? (
+                        ) : filteredRequests.length > 0 ? (
                            <div className="grid md:grid-cols-2 gap-6">
-                             {allRequests.map(req => (
+                             {filteredRequests.map(req => (
                                 <RequestCard 
                                     key={req.id} 
                                     request={req}
@@ -444,7 +351,7 @@ export default function RoktimPage() {
                            </div>
                         ) : (
                             <div className="text-center text-muted-foreground py-16 border-2 border-dashed rounded-lg lg:h-full flex items-center justify-center">
-                                <p>No active blood requests at the moment.</p>
+                                <p>No active blood requests for the selected group.</p>
                             </div>
                         )}
                     </div>
