@@ -101,9 +101,17 @@ function ProductCard({ product }: { product: Product }) {
                 <Info className="mr-2 h-4 w-4" /> Details
               </Link>
             </Button>
-            <Button className="w-full" onClick={handleAddToCart}>
-              <ShoppingCart className="mr-2 h-4 w-4" /> Add to Cart
-            </Button>
+            {product.category === 'Ogrim' ? (
+                <Button asChild className="w-full">
+                    <Link href="/ogrim">
+                        <ShoppingCart className="mr-2 h-4 w-4" /> Pre-Order
+                    </Link>
+                </Button>
+            ) : (
+                <Button className="w-full" onClick={handleAddToCart}>
+                  <ShoppingCart className="mr-2 h-4 w-4" /> Add to Cart
+                </Button>
+            )}
         </div>
       </div>
     </Card>
