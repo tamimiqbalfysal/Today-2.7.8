@@ -18,6 +18,7 @@ import { HeartPulse, Droplets, Hospital, Phone, Loader2, Trash2 } from 'lucide-r
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -81,7 +82,8 @@ export default function RoktimPage() {
     const { user } = useAuth();
     const { toast } = useToast();
 
-    const [requests, setRequests] = useState<BloodRequest[]>([]);
+    const [allRequests, setAllRequests] = useState<BloodRequest[]>([]);
+    const [myRequests, setMyRequests] = useState<BloodRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -99,10 +101,10 @@ export default function RoktimPage() {
         const q = query(collection(db, 'bloodRequests'), orderBy('timestamp', 'desc'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const fetchedRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BloodRequest));
-            setRequests(fetchedRequests);
+            setAllRequests(fetchedRequests);
             setIsLoading(false);
         }, (error) => {
-            console.error("Error fetching blood requests:", error);
+            console.error("Error fetching all blood requests:", error);
             if(error.code === 'permission-denied') {
                 toast({ variant: 'destructive', title: 'Permission Denied', description: 'Your security rules may be preventing you from reading requests.'});
             }
@@ -111,6 +113,23 @@ export default function RoktimPage() {
 
         return () => unsubscribe();
     }, [toast]);
+    
+    useEffect(() => {
+        if (!db || !user) {
+            setMyRequests([]);
+            return;
+        }
+        
+        const myQ = query(collection(db, 'bloodRequests'), where('authorId', '==', user.uid), orderBy('timestamp', 'desc'));
+        const unsubscribeMy = onSnapshot(myQ, (snapshot) => {
+            const fetchedMyRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BloodRequest));
+            setMyRequests(fetchedMyRequests);
+        }, (error) => {
+            console.error("Error fetching your blood requests:", error);
+        });
+
+        return () => unsubscribeMy();
+    }, [user]);
     
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -176,81 +195,108 @@ export default function RoktimPage() {
                         </p>
                     </div>
 
-                    <div className="grid lg:grid-cols-3 gap-8 items-start">
-                        <div className="lg:col-span-1">
-                             <Card className="sticky top-24">
-                                <CardHeader>
-                                    <CardTitle>Request Blood</CardTitle>
-                                    <CardDescription>Fill the form to post an urgent request.</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    {user ? (
-                                        <form onSubmit={handleSubmit} className="space-y-4">
-                                            <div className="space-y-1">
-                                                <Label htmlFor="blood-group">Blood Group</Label>
-                                                <Select value={bloodGroup} onValueChange={setBloodGroup} disabled={isSubmitting}>
-                                                    <SelectTrigger id="blood-group">
-                                                        <SelectValue placeholder="Select Blood Group" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {bloodGroups.map(group => (
-                                                            <SelectItem key={group} value={group}>{group}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
+                     <Tabs defaultValue="feed" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="feed">Urgent Requests</TabsTrigger>
+                            <TabsTrigger value="profile">My Profile</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="feed" className="mt-6">
+                            <div className="space-y-6">
+                                {isLoading ? (
+                                    <>
+                                        <Skeleton className="h-48 w-full" />
+                                        <Skeleton className="h-48 w-full" />
+                                        <Skeleton className="h-48 w-full" />
+                                    </>
+                                ) : allRequests.length > 0 ? (
+                                    allRequests.map(req => (
+                                        <RequestCard 
+                                            key={req.id} 
+                                            request={req}
+                                            isOwner={user?.uid === req.authorId}
+                                            onDelete={handleDelete}
+                                        />
+                                    ))
+                                ) : (
+                                    <div className="text-center text-muted-foreground py-16 border-2 border-dashed rounded-lg">
+                                        <p>No active blood requests at the moment.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </TabsContent>
+                        <TabsContent value="profile" className="mt-6">
+                            <div className="grid lg:grid-cols-2 gap-8 items-start">
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle>Request Blood</CardTitle>
+                                        <CardDescription>Fill the form to post an urgent request.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        {user ? (
+                                            <form onSubmit={handleSubmit} className="space-y-4">
+                                                <div className="space-y-1">
+                                                    <Label htmlFor="blood-group">Blood Group</Label>
+                                                    <Select value={bloodGroup} onValueChange={setBloodGroup} disabled={isSubmitting}>
+                                                        <SelectTrigger id="blood-group">
+                                                            <SelectValue placeholder="Select Blood Group" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {bloodGroups.map(group => (
+                                                                <SelectItem key={group} value={group}>{group}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label htmlFor="hospital">Hospital Name & Location</Label>
+                                                    <Input id="hospital" value={hospitalName} onChange={e => setHospitalName(e.target.value)} placeholder="e.g., City General Hospital" disabled={isSubmitting}/>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label htmlFor="contact">Contact Number</Label>
+                                                    <Input id="contact" type="tel" value={contact} onChange={e => setContact(e.target.value)} placeholder="Your phone number" disabled={isSubmitting} />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label htmlFor="notes">Additional Notes (Optional)</Label>
+                                                    <Textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g., Patient is in ICU, need by tomorrow." disabled={isSubmitting} />
+                                                </div>
+                                                <Button type="submit" className="w-full bg-destructive hover:bg-destructive/90" disabled={isSubmitting}>
+                                                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                                    {isSubmitting ? 'Posting...' : 'Post Request'}
+                                                </Button>
+                                            </form>
+                                        ) : (
+                                            <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
+                                                <p className="mb-4">Please log in to post a blood request.</p>
+                                                <Button asChild>
+                                                    <Link href="/login">Log In</Link>
+                                                </Button>
                                             </div>
-                                            <div className="space-y-1">
-                                                <Label htmlFor="hospital">Hospital Name & Location</Label>
-                                                <Input id="hospital" value={hospitalName} onChange={e => setHospitalName(e.target.value)} placeholder="e.g., City General Hospital" disabled={isSubmitting}/>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <Label htmlFor="contact">Contact Number</Label>
-                                                <Input id="contact" type="tel" value={contact} onChange={e => setContact(e.target.value)} placeholder="Your phone number" disabled={isSubmitting} />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <Label htmlFor="notes">Additional Notes (Optional)</Label>
-                                                <Textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g., Patient is in ICU, need by tomorrow." disabled={isSubmitting} />
-                                            </div>
-                                            <Button type="submit" className="w-full bg-destructive hover:bg-destructive/90" disabled={isSubmitting}>
-                                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                                {isSubmitting ? 'Posting...' : 'Post Request'}
-                                            </Button>
-                                        </form>
-                                    ) : (
-                                        <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
-                                            <p className="mb-4">Please log in to post a blood request.</p>
-                                            <Button asChild>
-                                                <Link href="/login">Log In</Link>
-                                            </Button>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </div>
-                        <div className="lg:col-span-2 space-y-6">
-                            <h2 className="text-2xl font-bold text-center">Urgent Requests</h2>
-                            {isLoading ? (
-                                <>
-                                    <Skeleton className="h-48 w-full" />
-                                    <Skeleton className="h-48 w-full" />
-                                    <Skeleton className="h-48 w-full" />
-                                </>
-                            ) : requests.length > 0 ? (
-                                requests.map(req => (
-                                    <RequestCard 
-                                        key={req.id} 
-                                        request={req}
-                                        isOwner={user?.uid === req.authorId}
-                                        onDelete={handleDelete}
-                                    />
-                                ))
-                            ) : (
-                                <div className="text-center text-muted-foreground py-16 border-2 border-dashed rounded-lg">
-                                    <p>No active blood requests at the moment.</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                                 <Card>
+                                    <CardHeader>
+                                        <CardTitle>Your Request History</CardTitle>
+                                        <CardDescription>A record of the requests you've made.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                         {myRequests.length > 0 ? (
+                                            myRequests.map(req => (
+                                                <RequestCard 
+                                                    key={req.id} 
+                                                    request={req}
+                                                    isOwner={true}
+                                                    onDelete={handleDelete}
+                                                />
+                                            ))
+                                        ) : (
+                                            <p className="text-center text-muted-foreground py-8">You haven't made any requests yet.</p>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </TabsContent>
+                    </Tabs>
                 </div>
             </main>
         </div>
