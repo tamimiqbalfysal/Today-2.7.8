@@ -4,8 +4,7 @@
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AppProviders } from '@/components/app-providers';
-import { NotificationSheet } from '@/components/fintrack/notification-sheet';
-import { RootGuard } from '@/components/auth/root-guard';
+import MainLayout from './main-layout';
 
 export default function RootLayout({
   children,
@@ -21,11 +20,9 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
         <AppProviders>
-          <NotificationSheet>
-            <RootGuard>
-              {children}
-            </RootGuard>
-          </NotificationSheet>
+          <MainLayout>
+            {children}
+          </MainLayout>
         </AppProviders>
         <Toaster />
       </body>
