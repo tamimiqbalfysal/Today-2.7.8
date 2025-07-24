@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,11 +14,12 @@ import { useToast } from '@/hooks/use-toast';
 import { collection, addDoc, query, orderBy, onSnapshot, Timestamp, deleteDoc, doc, where, updateDoc } from 'firebase/firestore';
 import type { BloodRequest, User } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
-import { HeartPulse, Droplets, Hospital, Phone, Loader2, Trash2, MapPin, User as UserIcon, Star } from 'lucide-react';
+import { HeartPulse, Droplets, Hospital, Phone, Loader2, Trash2, MapPin, User as UserIcon, Star, Search } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 
 const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -77,6 +78,34 @@ function RequestCard({ request, isOwner, onDelete }: { request: BloodRequest, is
     );
 }
 
+function DonorCard({ donor }: { donor: User }) {
+  return (
+    <Card>
+      <CardContent className="p-4 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Avatar>
+            <AvatarImage src={donor.photoURL || undefined} alt={donor.name} />
+            <AvatarFallback>{donor.name.charAt(0)}</AvatarFallback>
+          </Avatar>
+          <div>
+            <p className="font-semibold">{donor.name}</p>
+            <p className="text-sm text-muted-foreground">{donor.donorLocation}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-center">
+            <p className="font-bold text-lg text-destructive">{donor.donorBloodGroup}</p>
+            <p className="text-xs text-muted-foreground">Blood Group</p>
+          </div>
+          <Button asChild size="sm">
+            <Link href={`/u/${donor.uid}`}>View Profile</Link>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 
 export default function RoktimPage() {
     const { user } = useAuth();
@@ -84,9 +113,15 @@ export default function RoktimPage() {
 
     const [allRequests, setAllRequests] = useState<BloodRequest[]>([]);
     const [myRequests, setMyRequests] = useState<BloodRequest[]>([]);
+    const [donors, setDonors] = useState<User[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isDonorsLoading, setIsDonorsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSavingProfile, setIsSavingProfile] = useState(false);
+    
+    // Donor search states
+    const [donorSearchTerm, setDonorSearchTerm] = useState('');
+    const [donorBloodGroupFilter, setDonorBloodGroupFilter] = useState('');
 
     // Form states
     const [bloodGroup, setBloodGroup] = useState('');
@@ -110,6 +145,7 @@ export default function RoktimPage() {
     useEffect(() => {
         if (!db) {
             setIsLoading(false);
+            setIsDonorsLoading(false);
             return;
         }
         
@@ -126,7 +162,21 @@ export default function RoktimPage() {
             setIsLoading(false);
         });
 
-        return () => unsubscribe();
+        const donorsQuery = query(collection(db, 'users'), where('donorBloodGroup', '!=', null));
+        const unsubscribeDonors = onSnapshot(donorsQuery, (snapshot) => {
+            const fetchedDonors = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+            setDonors(fetchedDonors);
+            setIsDonorsLoading(false);
+        }, (error) => {
+            console.error("Error fetching donors:", error);
+            setIsDonorsLoading(false);
+        });
+
+
+        return () => {
+          unsubscribe();
+          unsubscribeDonors();
+        }
     }, [toast]);
     
     useEffect(() => {
@@ -146,6 +196,17 @@ export default function RoktimPage() {
 
         return () => unsubscribeMy();
     }, [user]);
+
+    const filteredDonors = useMemo(() => {
+      return donors.filter(donor => {
+        const matchesBloodGroup = donorBloodGroupFilter ? donor.donorBloodGroup === donorBloodGroupFilter : true;
+        const matchesSearchTerm = donorSearchTerm ? 
+          (donor.name.toLowerCase().includes(donorSearchTerm.toLowerCase()) || 
+           donor.donorLocation?.toLowerCase().includes(donorSearchTerm.toLowerCase()))
+          : true;
+        return matchesBloodGroup && matchesSearchTerm;
+      });
+    }, [donors, donorSearchTerm, donorBloodGroupFilter]);
     
     const handleSubmitRequest = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -231,8 +292,9 @@ export default function RoktimPage() {
                     </div>
 
                      <Tabs defaultValue="feed" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2">
+                        <TabsList className="grid w-full grid-cols-3">
                             <TabsTrigger value="feed">Urgent Requests</TabsTrigger>
+                            <TabsTrigger value="find-donors">Find Donors</TabsTrigger>
                             <TabsTrigger value="profile">My Profile</TabsTrigger>
                         </TabsList>
                         <TabsContent value="feed" className="mt-6">
@@ -259,6 +321,50 @@ export default function RoktimPage() {
                                 )}
                             </div>
                         </TabsContent>
+                         <TabsContent value="find-donors" className="mt-6">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Find a Blood Donor</CardTitle>
+                                    <CardDescription>Search for registered donors by location or blood group.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="grid sm:grid-cols-2 gap-4">
+                                        <Input 
+                                            placeholder="Search by name or location..." 
+                                            value={donorSearchTerm}
+                                            onChange={(e) => setDonorSearchTerm(e.target.value)}
+                                            className="pl-10"
+                                        />
+                                        <Select value={donorBloodGroupFilter} onValueChange={setDonorBloodGroupFilter}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Filter by Blood Group" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="">All Blood Groups</SelectItem>
+                                                {bloodGroups.map(group => (
+                                                    <SelectItem key={group} value={group}>{group}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-4 pt-4">
+                                        {isDonorsLoading ? (
+                                            <>
+                                                <Skeleton className="h-20 w-full" />
+                                                <Skeleton className="h-20 w-full" />
+                                                <Skeleton className="h-20 w-full" />
+                                            </>
+                                        ) : filteredDonors.length > 0 ? (
+                                            filteredDonors.map(donor => (
+                                                <DonorCard key={donor.uid} donor={donor} />
+                                            ))
+                                        ) : (
+                                            <p className="text-center text-muted-foreground py-8">No donors found matching your criteria.</p>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                         </TabsContent>
                         <TabsContent value="profile" className="mt-6">
                            <div className="grid lg:grid-cols-2 gap-8 items-start">
                                 <Card>
@@ -386,4 +492,3 @@ export default function RoktimPage() {
         </div>
     );
 }
-
