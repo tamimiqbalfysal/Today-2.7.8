@@ -101,20 +101,6 @@ export default function ProfilePage() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Donor profile states
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [donorBloodGroup, setDonorBloodGroup] = useState(user?.donorBloodGroup || '');
-  const [donorLocation, setDonorLocation] = useState(user?.donorLocation || '');
-  const [donorHospitals, setDonorHospitals] = useState(user?.donorNearestHospitals || '');
-
-  useEffect(() => {
-    if (user) {
-        setDonorBloodGroup(user.donorBloodGroup || '');
-        setDonorLocation(user.donorLocation || '');
-        setDonorHospitals(user.donorNearestHospitals || '');
-    }
-  }, [user]);
-
   useEffect(() => {
     if (!user || !db) {
         setIsDataLoading(false);
@@ -123,7 +109,6 @@ export default function ProfilePage() {
 
     setIsDataLoading(true);
     
-    // Fetch Posts
     const postsCol = collection(db, 'posts');
     const authoredPostsQuery = query(postsCol, where("authorId", "==", user.uid));
     const likedPostsQuery = query(postsCol, where("likes", "array-contains", user.uid));
@@ -146,11 +131,10 @@ export default function ProfilePage() {
         return () => unsubLiked();
     }, (error) => { console.error("Error fetching user posts:", error); });
 
-    // Fetch Blood Requests
     const myQ = query(collection(db, 'bloodRequests'), where('authorId', '==', user.uid));
     const unsubscribeMy = onSnapshot(myQ, (snapshot) => {
         const fetchedMyRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BloodRequest));
-        fetchedMyRequests.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
+        fetchedMyRequests.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
         setMyRequests(fetchedMyRequests);
     }, (error) => { console.error("Error fetching your blood requests:", error); });
 
@@ -180,17 +164,6 @@ export default function ProfilePage() {
   if (authLoading || (isDataLoading && user)) {
     return <ProfileSkeleton />;
   }
-
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSavingProfile(true);
-    await updateUserPreferences({
-        donorBloodGroup,
-        donorLocation,
-        donorNearestHospitals: donorHospitals,
-    });
-    setIsSavingProfile(false);
-  };
 
   const handleDeleteRequest = async (id: string) => {
     if(!db) return;
@@ -358,50 +331,6 @@ export default function ProfilePage() {
             <div className="space-y-8 mt-8">
                 <Card>
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                           <HeartPulse className="text-destructive"/> My Donor Profile
-                        </CardTitle>
-                        <CardDescription>Keep your information updated to help others find you.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <form onSubmit={handleSaveProfile} className="space-y-4">
-                            <div className="space-y-1">
-                                <Label htmlFor="donor-blood-group">Your Blood Group</Label>
-                                <Select value={donorBloodGroup} onValueChange={setDonorBloodGroup} disabled={isSavingProfile}>
-                                    <SelectTrigger id="donor-blood-group">
-                                        <SelectValue placeholder="Select Blood Group" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {bloodGroups.map(group => (
-                                            <SelectItem key={group} value={group}>{group}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-1">
-                                <Label htmlFor="donor-location">Your Location</Label>
-                                <Input id="donor-location" value={donorLocation} onChange={e => setDonorLocation(e.target.value)} placeholder="e.g., Dhaka, Bangladesh" disabled={isSavingProfile} />
-                            </div>
-                            <div className="space-y-1">
-                                <Label htmlFor="donor-hospitals">Nearest Hospitals</Label>
-                                <Textarea id="donor-hospitals" value={donorHospitals} onChange={e => setDonorHospitals(e.target.value)} placeholder="List hospitals you can easily reach" disabled={isSavingProfile} />
-                            </div>
-                             <div className="flex items-center gap-2">
-                                <Star className="h-5 w-5 text-yellow-400" />
-                                <span className="text-sm text-muted-foreground">
-                                    Your rating: {user?.donorRating?.toFixed(1) || 'N/A'} ({user?.donorRatingCount || 0} reviews)
-                                </span>
-                            </div>
-                            <Button type="submit" className="w-full" disabled={isSavingProfile}>
-                                {isSavingProfile && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Save Donor Profile
-                            </Button>
-                        </form>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
                         <CardTitle>Your Request History</CardTitle>
                         <CardDescription>A record of the blood requests you've made.</CardDescription>
                     </CardHeader>
@@ -437,5 +366,3 @@ export default function ProfilePage() {
         </div>
   );
 }
-
-    
