@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -134,7 +135,7 @@ export function NotificationSheet({ children }: { children: React.ReactNode }) {
           <div className="flex justify-between items-center">
             <SheetTitle>Notifications</SheetTitle>
             <Button asChild variant="ghost" size="icon">
-              <Link href="/office-express/chat" onClick={handleNotificationClick}>
+              <Link href="/chat" onClick={handleNotificationClick}>
                 <MessageSquare />
                 <span className="sr-only">Go to Chats</span>
               </Link>

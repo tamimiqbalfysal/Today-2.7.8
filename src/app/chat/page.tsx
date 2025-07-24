@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, MessageSquare } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 function ChatListItem({ chat, currentUserId }: { chat: Chat, currentUserId: string }) {
@@ -53,7 +53,10 @@ export default function ChatListPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || !db) return;
+    if (loading || !user || !db) {
+        if(!loading) setIsLoading(false);
+        return;
+    }
     
     setIsLoading(true);
     const chatsRef = collection(db, 'chats');
@@ -64,16 +67,19 @@ export default function ChatListPage() {
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedChats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Chat));
-      // Sort on the client side to avoid needing a composite index
+      // Sort on the client side to avoid needing a composite index for timestamp
       fetchedChats.sort((a, b) => (b.lastMessage?.timestamp?.toMillis() || 0) - (a.lastMessage?.timestamp?.toMillis() || 0));
       setChats(fetchedChats);
       setIsLoading(false);
+    }, (error) => {
+        console.error("Firestore error:", error);
+        setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, loading]);
   
-  if(loading) {
+  if(loading || isLoading) {
     return (
         <div className="container mx-auto max-w-2xl py-8">
             <Card>
@@ -101,36 +107,17 @@ export default function ChatListPage() {
     <div className="flex flex-col h-screen bg-background">
       <main className="flex-1 overflow-y-auto">
         <div className="container mx-auto px-4 py-8 max-w-2xl">
-          <div className="mb-6">
-            <Button asChild variant="ghost">
-                <Link href="/office-express">
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to Marketplace
-                </Link>
-            </Button>
-          </div>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MessageSquare className="h-6 w-6" /> Your Conversations
               </CardTitle>
               <CardDescription>
-                A list of all your active chats with sellers and clients.
+                A list of all your active chats from across the platform.
               </CardDescription>
             </CardHeader>
             <CardContent>
-                {isLoading ? (
-                    <div className="space-y-4">
-                        {[...Array(3)].map((_, i) => (
-                             <div key={i} className="flex items-center gap-4 p-4">
-                                <Skeleton className="h-12 w-12 rounded-full" />
-                                <div className="flex-1 space-y-2">
-                                    <Skeleton className="h-4 w-1/3" />
-                                    <Skeleton className="h-4 w-2/3" />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ) : chats.length > 0 ? (
+                {chats.length > 0 ? (
                     <div className="divide-y">
                         {chats.map(chat => (
                             <ChatListItem key={chat.id} chat={chat} currentUserId={user!.uid} />
@@ -139,6 +126,7 @@ export default function ChatListPage() {
                 ) : (
                     <div className="text-center text-muted-foreground py-16">
                         <p>You have no active conversations.</p>
+                        <p className="text-sm">Start a conversation from a seller's profile or gig page.</p>
                     </div>
                 )}
             </CardContent>

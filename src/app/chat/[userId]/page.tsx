@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, addDoc, orderBy, serverTimestamp, doc, getDoc, setDoc, limit, Unsubscribe, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, orderBy, serverTimestamp, doc, getDoc, setDoc, limit, Unsubscribe, updateDoc, Timestamp } from 'firebase/firestore';
 import type { Message, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -107,7 +107,7 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-screen bg-secondary/30">
       <header className="bg-background border-b p-4 flex items-center gap-4 sticky top-0 z-10">
-         <Link href="/office-express">
+         <Link href="/chat">
             <Button variant="ghost" size="icon">
                 <ArrowLeft/>
             </Button>

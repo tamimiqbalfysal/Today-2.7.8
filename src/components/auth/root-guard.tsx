@@ -15,6 +15,7 @@ const PROTECTED_ROUTES = [
   '/tribe',
   '/office-express/create',
   '/roktim',
+  '/chat',
 ];
 
 // Dynamic routes that are protected.
@@ -26,8 +27,12 @@ const DYNAMIC_PROTECTED_ROUTES_PREFIX = [
 export function RootGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   
-  const isProtectedRoute = PROTECTED_ROUTES.includes(pathname) || 
-                           DYNAMIC_PROTECTED_ROUTES_PREFIX.some(p => pathname.startsWith(p));
+  // A route is protected if it's in PROTECTED_ROUTES or starts with a prefix from DYNAMIC_PROTECTED_ROUTES_PREFIX,
+  // but we must ensure we don't double-protect a base route that is also a prefix.
+  // For example, '/chat' is in PROTECTED_ROUTES, and we don't want to double-check '/chat/'.
+  const isDynamicProtected = DYNAMIC_PROTECTED_ROUTES_PREFIX.some(p => pathname.startsWith(p) && pathname !== p);
+
+  const isProtectedRoute = PROTECTED_ROUTES.includes(pathname) || isDynamicProtected;
 
   if (isProtectedRoute) {
     return <AuthGuard>{children}</AuthGuard>;
