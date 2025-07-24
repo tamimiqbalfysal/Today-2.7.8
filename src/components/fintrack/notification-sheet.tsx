@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import {
@@ -131,7 +129,7 @@ export function NotificationSheet({ children }: { children: React.ReactNode }) {
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       {children}
       {user && <FloatingCounterButton />}
-      <SheetContent className="flex flex-col">
+      <SheetContent className="flex flex-col" showCloseButton={false}>
         <SheetHeader>
           <div className="flex justify-between items-center">
             <SheetTitle>Notifications</SheetTitle>
