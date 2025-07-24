@@ -1,5 +1,4 @@
 
-
 import type { Timestamp } from "firebase/firestore";
 
 export interface User {
@@ -140,4 +139,26 @@ export interface Message {
   senderId: string;
   text: string;
   timestamp: Timestamp;
+}
+
+export interface OgrimProduct {
+    id: string;
+    sellerId: string;
+    sellerName: string;
+    title: string;
+    description: string;
+    price: number;
+    imageUrl: string;
+    imagePath: string;
+    timestamp: Timestamp;
+}
+
+export interface PreOrder {
+    id: string;
+    productId: string;
+    customerName: string;
+    customerEmail: string;
+    customerPhone: string;
+    userId: string | null; // if they were logged in
+    timestamp: Timestamp;
 }
