@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -12,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { db, storage } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp, query, onSnapshot, orderBy, doc, Timestamp, deleteDoc, where, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import type { OgrimProduct } from '@/lib/types';
+import type { Post as OgrimProduct } from '@/lib/types';
 import Image from 'next/image';
 import { Upload, Trash2, X, ShoppingBag, Info, User, Target } from 'lucide-react';
 import Link from 'next/link';
@@ -23,14 +24,14 @@ function ProductCard({ product, onDelete, isOwner }: { product: OgrimProduct, on
   return (
     <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex flex-col group">
         <div className="relative">
-            <div className="relative aspect-video">
+            <Link href={`/ogrim/${product.id}`} className="block aspect-video">
                 <Image
-                    src={product.imageUrl || 'https://placehold.co/400x225.png'}
-                    alt={product.title}
+                    src={product.mediaURL || 'https://placehold.co/400x225.png'}
+                    alt={product.title || 'Product Image'}
                     fill
                     className="object-cover"
                 />
-            </div>
+            </Link>
             {isOwner && (
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -60,7 +61,7 @@ function ProductCard({ product, onDelete, isOwner }: { product: OgrimProduct, on
              <CardDescription className="line-clamp-2 h-10">{product.description}</CardDescription>
          </CardHeader>
          <CardContent className="flex-grow space-y-2">
-            <p className="text-2xl font-bold text-primary">${product.price.toFixed(2)}</p>
+            <p className="text-2xl font-bold text-primary">${product.price?.toFixed(2) || '0.00'}</p>
              <div className="flex items-center text-sm text-muted-foreground gap-2">
                 <Target className="h-4 w-4" />
                 <span>{product.preOrderCount || 0} / {product.target} pre-orders</span>
@@ -69,7 +70,7 @@ function ProductCard({ product, onDelete, isOwner }: { product: OgrimProduct, on
          <CardFooter className="flex flex-col gap-2">
             <Button asChild className="w-full">
               <Link href={`/ogrim/${product.id}`}>
-                <Info className="mr-2 h-4 w-4" /> View Details
+                <ShoppingBag className="mr-2 h-4 w-4" /> Pre-Order
               </Link>
             </Button>
          </CardFooter>
@@ -96,25 +97,21 @@ export default function OgrimPage() {
     if (!db) return;
     setIsLoadingProducts(true);
 
-    const productsCollection = collection(db, 'ogrim-products');
-    const q = query(productsCollection, orderBy('timestamp', 'desc'));
+    const productsCollection = collection(db, 'posts');
+    const q = query(productsCollection, where('category', '==', 'Ogrim'), orderBy('timestamp', 'desc'));
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
         const fetchedProducts = snapshot.docs
             .map(doc => ({ id: doc.id, ...doc.data() } as OgrimProduct));
         
-        // Fetch pre-order counts for each product
-        const productsWithCounts = Promise.all(fetchedProducts.map(async (p) => {
-            const preordersRef = collection(db, `ogrim-products/${p.id}/preorders`);
+        const productsWithCounts = await Promise.all(fetchedProducts.map(async (p) => {
+            const preordersRef = collection(db, `posts/${p.id}/preorders`);
             const preorderSnapshot = await getDocs(preordersRef);
             return { ...p, preOrderCount: preorderSnapshot.size };
         }));
 
-        productsWithCounts.then(res => {
-            setProducts(res);
-            setIsLoadingProducts(false);
-        });
-
+        setProducts(productsWithCounts);
+        setIsLoadingProducts(false);
     }, (error) => {
         console.error("Error fetching products:", error);
         toast({variant: 'destructive', title: "Error", description: "Could not fetch pre-order products."})
@@ -144,7 +141,7 @@ export default function OgrimPage() {
     if (!db || !storage || !user) return;
     
     try {
-        await deleteDoc(doc(db, 'ogrim-products', productId));
+        await deleteDoc(doc(db, 'posts', productId));
         if (imagePath) {
             const storageRef = ref(storage, imagePath);
             await deleteObject(storageRef).catch(err => {
@@ -174,16 +171,25 @@ export default function OgrimPage() {
       await uploadBytes(storageRef, imageFile);
       const imageUrl = await getDownloadURL(storageRef);
 
-      await addDoc(collection(db, `ogrim-products`), {
+      await addDoc(collection(db, 'posts'), {
+        authorId: user.uid,
+        authorName: user.name,
+        authorPhotoURL: user.photoURL,
+        content: `${description}\n${parseFloat(price)}`,
+        category: 'Ogrim',
+        timestamp: Timestamp.now(),
+        mediaURL: imageUrl,
+        mediaType: 'image',
         sellerId: user.uid,
         sellerName: user.name,
         title: title,
         description: description,
         price: parseFloat(price),
         target: parseInt(target, 10),
-        imageUrl: imageUrl,
         imagePath: imagePath,
-        timestamp: Timestamp.now(),
+        likes: [],
+        laughs: [],
+        comments: [],
       });
       
       toast({ title: 'Success!', description: 'Your product has been listed for pre-order.' });
@@ -302,3 +308,4 @@ export default function OgrimPage() {
       </div>
   );
 }
+

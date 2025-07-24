@@ -20,6 +20,7 @@ import { useCart } from '@/contexts/cart-context';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/auth-context';
 import { countries } from '@/lib/countries';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 function ProductCard({ product }: { product: Product }) {
   const { toast } = useToast();
@@ -54,32 +55,41 @@ function ProductCard({ product }: { product: Product }) {
   }, [product.currency]);
 
   return (
-    <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+    <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex flex-col">
       <CardContent className="p-0">
-        <div className="relative aspect-square bg-black">
-          {displayMedia.url && (
-            displayMedia.type === 'image' ? (
-                <Image
-                src={displayMedia.url}
-                alt={product.authorName}
-                fill
-                className="object-cover"
-                />
-            ) : (
-                <video
-                    src={displayMedia.url}
-                    className="w-full h-full object-cover"
-                    loop
-                    muted
-                    autoPlay
-                    playsInline
-                />
-            )
-          )}
-        </div>
-        <div className="p-4 space-y-2">
+        <Link href={product.category === 'Ogrim' ? `/ogrim/${product.id}` : `/attom/${product.id}`} className="block">
+          <div className="relative aspect-square bg-black">
+            {displayMedia.url && (
+              displayMedia.type === 'image' ? (
+                  <Image
+                  src={displayMedia.url}
+                  alt={product.authorName}
+                  fill
+                  className="object-cover"
+                  />
+              ) : (
+                  <video
+                      src={displayMedia.url}
+                      className="w-full h-full object-cover"
+                      loop
+                      muted
+                      autoPlay
+                      playsInline
+                  />
+              )
+            )}
+          </div>
+        </Link>
+        <div className="p-4 space-y-3 flex-grow flex flex-col">
           <p className="text-sm text-muted-foreground">{product.category}</p>
-          <h3 className="text-lg font-semibold">{product.authorName}</h3>
+          <h3 className="text-lg font-semibold flex-grow">{product.authorName}</h3>
+           <div className="flex items-center gap-2 pt-2">
+              <Avatar className="h-6 w-6">
+                <AvatarImage src={product.authorPhotoURL} />
+                <AvatarFallback>{product.authorName.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <span className="text-xs font-medium text-muted-foreground">{product.authorName}</span>
+            </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center">
               {[...Array(5)].map((_, i) => (
@@ -94,9 +104,9 @@ function ProductCard({ product }: { product: Product }) {
           <p className="text-2xl font-bold">{currencySymbol}{price}</p>
         </div>
       </CardContent>
-      <div className="p-4 pt-0">
+      <div className="p-4 pt-0 mt-auto">
         <div className="flex flex-col gap-2">
-            <Button asChild variant="outline" className="w-full">
+             <Button asChild variant="outline" className="w-full">
               <Link href={product.category === 'Ogrim' ? `/ogrim/${product.id}` : `/attom/${product.id}`}>
                 <Info className="mr-2 h-4 w-4" /> Details
               </Link>
@@ -332,3 +342,4 @@ export default function AttomPage() {
       </div>
   );
 }
+
