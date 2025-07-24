@@ -148,6 +148,7 @@ export default function AttomPage() {
                 });
             });
             
+            // This sort is now redundant if individual queries are ordered, but good for safety
             fetchedProducts.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
             
             setProducts(fetchedProducts);
