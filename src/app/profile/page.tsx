@@ -161,11 +161,21 @@ export default function ProfilePage() {
   }, [user, toast]);
   
   const filteredPosts = useMemo(() => {
+    if (!searchTerm) return posts;
     return posts.filter(post => 
       (post.content && post.content.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (post.authorName && post.authorName.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [posts, searchTerm]);
+  
+  const filteredRequests = useMemo(() => {
+      if (!searchTerm) return myRequests;
+      return myRequests.filter(req =>
+        req.bloodGroup.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        req.hospitalName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (req.notes && req.notes.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+  }, [myRequests, searchTerm]);
 
   if (authLoading || (isDataLoading && user)) {
     return <ProfileSkeleton />;
@@ -331,6 +341,19 @@ export default function ProfilePage() {
              <div className="w-full max-w-sm mx-auto">
                 <ProfileCard user={user!} isOwnProfile={true} />
              </div>
+
+             <div className="mt-8 mb-6 max-w-lg mx-auto">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                        type="search"
+                        placeholder="Search your profile..."
+                        className="w-full pl-10"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+            </div>
              
             <div className="space-y-8 mt-8">
                 <Card>
@@ -383,8 +406,8 @@ export default function ProfilePage() {
                         <CardDescription>A record of the blood requests you've made.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        {myRequests.length > 0 ? (
-                            myRequests.map(req => (
+                        {filteredRequests.length > 0 ? (
+                            filteredRequests.map(req => (
                                 <RequestCard 
                                     key={req.id} 
                                     request={req}
@@ -392,23 +415,12 @@ export default function ProfilePage() {
                                 />
                             ))
                         ) : (
-                            <p className="text-center text-muted-foreground py-8">You haven't made any requests yet.</p>
+                            <p className="text-center text-muted-foreground py-8">
+                                {searchTerm ? `No requests found for "${searchTerm}".` : "You haven't made any requests yet."}
+                            </p>
                         )}
                     </CardContent>
                 </Card>
-            </div>
-
-             <div className="mt-8 mb-4 max-w-lg mx-auto">
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input
-                        type="search"
-                        placeholder="Search your posts..."
-                        className="w-full pl-10"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
             </div>
 
             <div className="mt-8 space-y-6">
