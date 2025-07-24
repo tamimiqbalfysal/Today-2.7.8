@@ -59,12 +59,13 @@ export default function ChatListPage() {
     const chatsRef = collection(db, 'chats');
     const q = query(
       chatsRef,
-      where('participants', 'array-contains', user.uid),
-      orderBy('lastMessage.timestamp', 'desc')
+      where('participants', 'array-contains', user.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedChats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Chat));
+      // Sort on the client side to avoid needing a composite index
+      fetchedChats.sort((a, b) => (b.lastMessage?.timestamp?.toMillis() || 0) - (a.lastMessage?.timestamp?.toMillis() || 0));
       setChats(fetchedChats);
       setIsLoading(false);
     });
