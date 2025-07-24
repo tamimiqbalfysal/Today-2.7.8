@@ -40,6 +40,7 @@ function ProductCard({ product }: { product: Product }) {
     return priceMatch ? parseFloat(priceMatch[1]).toFixed(2) : '0.00';
   }, [product.content]);
 
+
   const displayMedia = (product.media && product.media[0]) || { url: product.mediaURL, type: 'image' };
   
   const averageRating = product.averageRating || 0;
@@ -158,7 +159,6 @@ export default function AttomPage() {
                 });
             });
             
-            // Note: Sorting across different query results needs to be done on the client
             fetchedProducts.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
             
             setProducts(fetchedProducts);
@@ -181,31 +181,27 @@ export default function AttomPage() {
   const filteredProducts = useMemo(() => {
     let productsToShow = products;
     
-    // Filter by category
     if (activeFilters.length > 0) {
         productsToShow = productsToShow.filter(p => activeFilters.includes(p.category || ''));
     } else {
         productsToShow = [];
     }
     
-    // Filter by country if a user is logged in and has a country
     if (user?.country) {
       const userCountryCode = countries.find(c => c.name === user.country)?.code;
       productsToShow = productsToShow.filter(p => {
         if(p.category !== 'Tribe') return true;
-        // If a product has no country restrictions, it's available to everyone
         if (!p.availableCountry) {
           return true;
         }
-        // Otherwise, check if the user's country is in the list of available countries
         return p.availableCountry === userCountryCode;
       });
     }
 
-    // Filter by search term
     if (searchTerm) {
+      const lowercasedTerm = searchTerm.toLowerCase();
       productsToShow = productsToShow.filter(p =>
-        p.authorName.toLowerCase().includes(searchTerm.toLowerCase())
+        (p.authorName).toLowerCase().includes(lowercasedTerm)
       );
     }
 
@@ -311,8 +307,8 @@ export default function AttomPage() {
               </div>
             </div>
             {isLoadingProducts ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                {[...Array(6)].map((_, i) => (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                {[...Array(8)].map((_, i) => (
                   <Card key={i}>
                     <CardContent className="p-4">
                       <div className="animate-pulse space-y-4">
@@ -326,7 +322,7 @@ export default function AttomPage() {
                 ))}
               </div>
             ) : filteredProducts.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                 {filteredProducts.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}
@@ -343,3 +339,5 @@ export default function AttomPage() {
   );
 }
 
+
+    
