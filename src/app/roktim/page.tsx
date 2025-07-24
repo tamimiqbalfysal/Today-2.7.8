@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { collection, addDoc, query, orderBy, onSnapshot, Timestamp, deleteDoc, doc, where, updateDoc } from 'firebase/firestore';
 import type { BloodRequest, User } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
-import { HeartPulse, Droplets, Hospital, Phone, Loader2, Trash2, MapPin, User as UserIcon, Star, Search } from 'lucide-react';
+import { HeartPulse, Droplets, Hospital, Phone, Loader2, Trash2, MapPin, User as UserIcon, Star, Search, MessageSquare } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
@@ -98,7 +98,10 @@ function DonorCard({ donor }: { donor: User }) {
             <p className="text-xs text-muted-foreground">Blood Group</p>
           </div>
           <Button asChild size="sm">
-            <Link href={`/u/${donor.uid}`}>View Profile</Link>
+            <Link href={`/chat/${donor.uid}`}>
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Chat
+            </Link>
           </Button>
         </div>
       </CardContent>
