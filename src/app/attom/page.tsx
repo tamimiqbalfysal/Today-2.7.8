@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useRef, useMemo, useEffect } from 'react';
@@ -134,7 +135,7 @@ export default function AttomPage() {
             const categoriesToFetch = ['Tribe', 'Gift Garden', 'Video Bazaar', 'Ogrim'];
             
             const productPromises = categoriesToFetch.map(category => {
-                const q = query(collection(db, 'posts'), where('category', '==', category), orderBy('timestamp', 'desc'));
+                const q = query(collection(db, 'posts'), where('category', '==', category));
                 return getDocs(q);
             });
             
