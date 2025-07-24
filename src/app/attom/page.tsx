@@ -12,7 +12,7 @@ import { Star, ShoppingCart, Search, Filter, Info } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { collection, onSnapshot, query, where, collectionGroup, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Post as Product } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -130,15 +130,24 @@ export default function AttomPage() {
     if (!db) return;
     setIsLoadingProducts(true);
 
-    const productsQuery = query(collection(db, 'posts'));
+    const categoriesToFetch = ['Tribe', 'Gift Garden', 'Video Bazaar', 'Ogrim'];
+    if (categoriesToFetch.length === 0) {
+      setProducts([]);
+      setIsLoadingProducts(false);
+      return;
+    }
+
+    const productsQuery = query(
+      collection(db, 'posts'),
+      where('category', 'in', categoriesToFetch),
+      orderBy('timestamp', 'desc')
+    );
 
     const unsubscribe = onSnapshot(productsQuery, (snapshot) => {
       const fetchedProducts = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      } as Product))
-      .filter(p => ['Tribe', 'Gift Garden', 'Video Bazaar', 'Ogrim'].includes(p.category || ''))
-      .sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+      } as Product));
       
       setProducts(fetchedProducts);
       setIsLoadingProducts(false);
