@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -6,7 +7,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Star, Search, Filter, Briefcase, PlusCircle } from 'lucide-react';
+import { Star, Search, Filter, Briefcase, PlusCircle, MessageSquare } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
@@ -139,10 +140,15 @@ export default function OfficeExpressPage() {
             </p>
           </div>
 
-          <div className="mb-8 flex justify-center">
+          <div className="mb-8 flex flex-wrap justify-center gap-4">
             <Button asChild>
                 <Link href="/office-express/create">
                     <PlusCircle className="mr-2 h-4 w-4" /> Become a Seller
+                </Link>
+            </Button>
+             <Button asChild variant="outline">
+                <Link href="/office-express/chat">
+                    <MessageSquare className="mr-2 h-4 w-4" /> My Chats
                 </Link>
             </Button>
           </div>

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -17,8 +18,9 @@ import type { Notification } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
 import { ScrollArea } from '../ui/scroll-area';
-import { Heart, EyeOff, Trash2 } from 'lucide-react';
+import { Heart, EyeOff, Trash2, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
+import { Button } from '../ui/button';
 
 function BellShapeButton(props: SVGProps<SVGSVGElement> & { children?: React.ReactNode }) {
   return (
@@ -131,7 +133,15 @@ export function NotificationSheet({ children }: { children: React.ReactNode }) {
       {user && <FloatingCounterButton />}
       <SheetContent className="flex flex-col">
         <SheetHeader>
-          <SheetTitle>Notifications</SheetTitle>
+          <div className="flex justify-between items-center">
+            <SheetTitle>Notifications</SheetTitle>
+            <Button asChild variant="ghost" size="icon">
+              <Link href="/office-express/chat" onClick={handleNotificationClick}>
+                <MessageSquare />
+                <span className="sr-only">Go to Chats</span>
+              </Link>
+            </Button>
+          </div>
           <SheetDescription>
             Recent activity from your friends.
           </SheetDescription>
