@@ -33,14 +33,10 @@ function RequestCard({ request, isOwner, onDelete }: { request: BloodRequest, is
                 </div>
                 <div>
                     <CardTitle className="text-2xl font-bold text-destructive">{request.bloodGroup}</CardTitle>
-                    <CardDescription>Needed Urgently</CardDescription>
+                    <CardDescription>{request.authorName}</CardDescription>
                 </div>
             </CardHeader>
             <CardContent className="space-y-3">
-                <div className="flex items-center gap-3">
-                    <UserIcon className="h-5 w-5 text-muted-foreground" />
-                    <span className="font-medium">{request.authorName}</span>
-                </div>
                 <div className="flex items-center gap-3">
                     <Hospital className="h-5 w-5 text-muted-foreground" />
                     <span className="font-medium">{request.hospitalName}</span>
@@ -301,27 +297,76 @@ export default function RoktimPage() {
                             <TabsTrigger value="profile">My Profile</TabsTrigger>
                         </TabsList>
                         <TabsContent value="feed" className="mt-6">
-                            <div className="space-y-6">
-                                {isLoading ? (
-                                    <>
-                                        <Skeleton className="h-48 w-full" />
-                                        <Skeleton className="h-48 w-full" />
-                                        <Skeleton className="h-48 w-full" />
-                                    </>
-                                ) : allRequests.length > 0 ? (
-                                    allRequests.map(req => (
-                                        <RequestCard 
-                                            key={req.id} 
-                                            request={req}
-                                            isOwner={user?.uid === req.authorId}
-                                            onDelete={handleDelete}
-                                        />
-                                    ))
-                                ) : (
-                                    <div className="text-center text-muted-foreground py-16 border-2 border-dashed rounded-lg">
-                                        <p>No active blood requests at the moment.</p>
-                                    </div>
-                                )}
+                            <div className="grid lg:grid-cols-2 gap-8 items-start">
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle>Request Blood</CardTitle>
+                                        <CardDescription>Fill the form to post an urgent request.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        {user ? (
+                                            <form onSubmit={handleSubmitRequest} className="space-y-4">
+                                                <div className="space-y-1">
+                                                    <Label htmlFor="blood-group">Blood Group</Label>
+                                                    <Select value={bloodGroup} onValueChange={setBloodGroup} disabled={isSubmitting}>
+                                                        <SelectTrigger id="blood-group">
+                                                            <SelectValue placeholder="Select Blood Group" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {bloodGroups.map(group => (
+                                                                <SelectItem key={group} value={group}>{group}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label htmlFor="hospital">Hospital Name & Location</Label>
+                                                    <Input id="hospital" value={hospitalName} onChange={e => setHospitalName(e.target.value)} placeholder="e.g., City General Hospital" disabled={isSubmitting}/>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label htmlFor="contact">Contact Number</Label>
+                                                    <Input id="contact" type="tel" value={contact} onChange={e => setContact(e.target.value)} placeholder="Your phone number" disabled={isSubmitting} />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label htmlFor="notes">Additional Notes (Optional)</Label>
+                                                    <Textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g., Patient is in ICU, need by tomorrow." disabled={isSubmitting} />
+                                                </div>
+                                                <Button type="submit" className="w-full bg-destructive hover:bg-destructive/90" disabled={isSubmitting}>
+                                                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                                    {isSubmitting ? 'Posting...' : 'Post Request'}
+                                                </Button>
+                                            </form>
+                                        ) : (
+                                            <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
+                                                <p className="mb-4">Please log in to post a blood request.</p>
+                                                <Button asChild>
+                                                    <Link href="/login">Log In</Link>
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                                <div className="space-y-6">
+                                    {isLoading ? (
+                                        <>
+                                            <Skeleton className="h-48 w-full" />
+                                            <Skeleton className="h-48 w-full" />
+                                        </>
+                                    ) : allRequests.length > 0 ? (
+                                        allRequests.map(req => (
+                                            <RequestCard 
+                                                key={req.id} 
+                                                request={req}
+                                                isOwner={user?.uid === req.authorId}
+                                                onDelete={handleDelete}
+                                            />
+                                        ))
+                                    ) : (
+                                        <div className="text-center text-muted-foreground py-16 border-2 border-dashed rounded-lg lg:h-full flex items-center justify-center">
+                                            <p>No active blood requests at the moment.</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </TabsContent>
                          <TabsContent value="find-donors" className="mt-6">
@@ -372,56 +417,8 @@ export default function RoktimPage() {
                             </Card>
                          </TabsContent>
                         <TabsContent value="profile" className="mt-6">
-                           <div className="grid lg:grid-cols-2 gap-8 items-start">
+                            <div className="space-y-8">
                                 <Card>
-                                    <CardHeader>
-                                        <CardTitle>Request Blood</CardTitle>
-                                        <CardDescription>Fill the form to post an urgent request.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        {user ? (
-                                            <form onSubmit={handleSubmitRequest} className="space-y-4">
-                                                <div className="space-y-1">
-                                                    <Label htmlFor="blood-group">Blood Group</Label>
-                                                    <Select value={bloodGroup} onValueChange={setBloodGroup} disabled={isSubmitting}>
-                                                        <SelectTrigger id="blood-group">
-                                                            <SelectValue placeholder="Select Blood Group" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {bloodGroups.map(group => (
-                                                                <SelectItem key={group} value={group}>{group}</SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <Label htmlFor="hospital">Hospital Name & Location</Label>
-                                                    <Input id="hospital" value={hospitalName} onChange={e => setHospitalName(e.target.value)} placeholder="e.g., City General Hospital" disabled={isSubmitting}/>
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <Label htmlFor="contact">Contact Number</Label>
-                                                    <Input id="contact" type="tel" value={contact} onChange={e => setContact(e.target.value)} placeholder="Your phone number" disabled={isSubmitting} />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <Label htmlFor="notes">Additional Notes (Optional)</Label>
-                                                    <Textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g., Patient is in ICU, need by tomorrow." disabled={isSubmitting} />
-                                                </div>
-                                                <Button type="submit" className="w-full bg-destructive hover:bg-destructive/90" disabled={isSubmitting}>
-                                                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                                    {isSubmitting ? 'Posting...' : 'Post Request'}
-                                                </Button>
-                                            </form>
-                                        ) : (
-                                            <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
-                                                <p className="mb-4">Please log in to post a blood request.</p>
-                                                <Button asChild>
-                                                    <Link href="/login">Log In</Link>
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                                 <Card>
                                     <CardHeader>
                                         <CardTitle>My Donor Profile</CardTitle>
                                         <CardDescription>Keep your information updated to help others find you.</CardDescription>
@@ -468,8 +465,6 @@ export default function RoktimPage() {
                                         )}
                                     </CardContent>
                                 </Card>
-                            </div>
-                             <div className="mt-8">
                                 <Card>
                                     <CardHeader>
                                         <CardTitle>Your Request History</CardTitle>
