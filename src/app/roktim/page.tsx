@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
-import { collection, addDoc, query, orderBy, onSnapshot, Timestamp, deleteDoc, doc, where, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, onSnapshot, Timestamp, deleteDoc, doc, where, updateDoc, getDocs } from 'firebase/firestore';
 import type { BloodRequest, User } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
 import { HeartPulse, Droplets, Hospital, Phone, Loader2, Trash2, MapPin, User as UserIcon, Star, Search, MessageSquare } from 'lucide-react';
@@ -22,6 +22,30 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 
 const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+
+function DonorCard({ donor }: { donor: User }) {
+  return (
+    <div className="flex items-center gap-4 p-4 rounded-lg hover:bg-accent transition-colors">
+        <Avatar className="h-12 w-12">
+            <AvatarImage src={donor.photoURL || undefined} alt={donor.name} />
+            <AvatarFallback>{donor.name.charAt(0)}</AvatarFallback>
+        </Avatar>
+        <div className="flex-1 overflow-hidden">
+            <p className="font-semibold truncate">{donor.name}</p>
+            <p className="text-sm text-muted-foreground truncate">{donor.donorLocation}</p>
+        </div>
+        <div className="flex items-center gap-2 text-destructive font-bold">
+            <Droplets className="h-4 w-4" />
+            <span>{donor.donorBloodGroup}</span>
+        </div>
+        <Button asChild variant="outline" size="sm">
+            <Link href={`/chat/${donor.uid}`}>
+                Chat
+            </Link>
+        </Button>
+    </div>
+  )
+}
 
 function RequestCard({ request, isOwner, onDelete }: { request: BloodRequest, isOwner: boolean, onDelete: (id: string) => void }) {
     return (
@@ -81,13 +105,15 @@ export default function RoktimPage() {
     const { toast } = useToast();
 
     const [allRequests, setAllRequests] = useState<BloodRequest[]>([]);
-    const [isLoadingRequests, setIsLoadingRequests] = useState(true);
+    const [allDonors, setAllDonors] = useState<User[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    // Filter for urgent requests
+    // Filters
     const [requestBloodGroupFilter, setRequestBloodGroupFilter] = useState('');
+    const [donorSearchTerm, setDonorSearchTerm] = useState('');
 
-    // Form states
+    // Forms
     const [bloodGroup, setBloodGroup] = useState('');
     const [hospitalName, setHospitalName] = useState('');
     const [contact, setContact] = useState('');
@@ -109,25 +135,34 @@ export default function RoktimPage() {
 
     useEffect(() => {
         if (!db) {
-            setIsLoadingRequests(false);
+            setIsLoading(false);
             return;
         }
         
-        const q = query(collection(db, 'bloodRequests'), orderBy('timestamp', 'desc'));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const unsubRequests = onSnapshot(query(collection(db, 'bloodRequests'), orderBy('timestamp', 'desc')), (snapshot) => {
             const fetchedRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BloodRequest));
             setAllRequests(fetchedRequests);
-            setIsLoadingRequests(false);
+            setIsLoading(false);
         }, (error) => {
-            console.error("Error fetching all blood requests:", error);
+            console.error("Error fetching blood requests:", error);
             if(error.code === 'permission-denied') {
                 toast({ variant: 'destructive', title: 'Permission Denied', description: 'Your security rules may be preventing you from reading requests.'});
             }
-            setIsLoadingRequests(false);
+            setIsLoading(false);
         });
 
+        const donorsQuery = query(collection(db, 'users'), where('donorBloodGroup', '!=', ''));
+        const unsubDonors = onSnapshot(donorsQuery, (snapshot) => {
+            const fetchedDonors = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+            setAllDonors(fetchedDonors);
+        }, (error) => {
+            console.error("Error fetching donors:", error);
+        });
+
+
         return () => {
-          unsubscribe();
+          unsubRequests();
+          unsubDonors();
         }
     }, [toast]);
 
@@ -137,6 +172,19 @@ export default function RoktimPage() {
       }
       return allRequests.filter(req => req.bloodGroup === requestBloodGroupFilter);
     }, [allRequests, requestBloodGroupFilter]);
+
+    const filteredDonors = useMemo(() => {
+        if (!donorSearchTerm.trim()) {
+            return [];
+        }
+        const lowercasedTerm = donorSearchTerm.toLowerCase();
+        return allDonors.filter(donor =>
+            donor.id !== user?.uid && (
+            donor.name.toLowerCase().includes(lowercasedTerm) ||
+            donor.donorLocation?.toLowerCase().includes(lowercasedTerm) ||
+            donor.donorBloodGroup?.toLowerCase() === lowercasedTerm)
+        );
+    }, [allDonors, donorSearchTerm, user?.uid]);
     
     const handleSubmitRequest = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -197,6 +245,8 @@ export default function RoktimPage() {
         });
         setIsSavingProfile(false);
     };
+    
+    const loggedInUserDonorCard = user?.donorBloodGroup ? allDonors.find(d => d.id === user.uid) : null;
 
     return (
         <div className="flex flex-col min-h-screen bg-red-50/50">
@@ -210,6 +260,38 @@ export default function RoktimPage() {
                         <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
                             Connect with donors. Save a life. Post an urgent request for blood.
                         </p>
+                    </div>
+                    
+                    <div className="mb-8">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Find a Blood Donor</CardTitle>
+                                <CardDescription>Search for registered donors by name, location or blood group.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                                    <Input
+                                        type="search"
+                                        placeholder="Search by name, location or blood group (e.g. A+)"
+                                        className="w-full pl-10"
+                                        value={donorSearchTerm}
+                                        onChange={(e) => setDonorSearchTerm(e.target.value)}
+                                    />
+                                </div>
+                                <div className="mt-4 space-y-2 divide-y">
+                                    {donorSearchTerm ? (
+                                        filteredDonors.length > 0 ? (
+                                            filteredDonors.map(donor => <DonorCard key={donor.id} donor={donor} />)
+                                        ) : (
+                                            <p className="text-center text-muted-foreground py-4">No donors found.</p>
+                                        )
+                                    ) : loggedInUserDonorCard ? (
+                                        <DonorCard donor={loggedInUserDonorCard} />
+                                    ) : null}
+                                </div>
+                            </CardContent>
+                        </Card>
                     </div>
 
                     <div className="grid lg:grid-cols-2 gap-8 mb-8 items-start">
@@ -243,12 +325,6 @@ export default function RoktimPage() {
                                     <div className="space-y-1">
                                         <Label htmlFor="donor-hospitals">Nearest Hospitals</Label>
                                         <Textarea id="donor-hospitals" value={donorHospitals} onChange={e => setDonorHospitals(e.target.value)} placeholder="List hospitals you can easily reach" disabled={isSavingProfile} />
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Star className="h-5 w-5 text-yellow-400" />
-                                        <span className="text-sm text-muted-foreground">
-                                            Your rating: {user?.donorRating?.toFixed(1) || 'N/A'} ({user?.donorRatingCount || 0} reviews)
-                                        </span>
                                     </div>
                                     <Button type="submit" className="w-full" disabled={isSavingProfile}>
                                         {isSavingProfile && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -333,7 +409,7 @@ export default function RoktimPage() {
                                 </SelectContent>
                             </Select>
                         </div>
-                        {isLoadingRequests ? (
+                        {isLoading ? (
                             <div className="space-y-6">
                                 <Skeleton className="h-48 w-full" />
                                 <Skeleton className="h-48 w-full" />
@@ -360,3 +436,5 @@ export default function RoktimPage() {
         </div>
     );
 }
+
+    
