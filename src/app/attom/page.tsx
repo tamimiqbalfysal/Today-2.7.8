@@ -132,14 +132,23 @@ export default function AttomPage() {
     const fetchProducts = async () => {
         setIsLoadingProducts(true);
         try {
-            const q = query(collection(db, 'posts'), where('category', '!=', null), orderBy('category'), orderBy('timestamp', 'desc'));
-            const querySnapshot = await getDocs(q);
+            const categoriesToFetch = ['Tribe', 'Gift Garden', 'Video Bazaar', 'Ogrim'];
             
-            let fetchedProducts: Product[] = [];
-            querySnapshot.forEach(doc => {
-                fetchedProducts.push({ id: doc.id, ...doc.data() } as Product);
+            const productPromises = categoriesToFetch.map(category => {
+                const q = query(collection(db, 'posts'), where('category', '==', category));
+                return getDocs(q);
             });
             
+            const querySnapshots = await Promise.all(productPromises);
+            
+            let fetchedProducts: Product[] = [];
+            querySnapshots.forEach(snapshot => {
+                snapshot.docs.forEach(doc => {
+                    fetchedProducts.push({ id: doc.id, ...doc.data() } as Product);
+                });
+            });
+            
+            // Note: Sorting across different query results needs to be done on the client
             fetchedProducts.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
             
             setProducts(fetchedProducts);
