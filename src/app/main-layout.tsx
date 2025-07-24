@@ -7,7 +7,6 @@ import { useAuth } from '@/contexts/auth-context';
 
 import { Header } from '@/components/fintrack/header';
 import { NotificationSheet } from '@/components/fintrack/notification-sheet';
-import { FloatingCounterButton } from '@/components/fintrack/floating-counter-button';
 import { FloatingCartButton } from '@/components/fintrack/floating-cart-button';
 import { RootGuard } from '@/components/auth/root-guard';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -41,7 +40,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           </RootGuard>
         </NotificationSheet>
       </ScrollArea>
-      {user && <FloatingCounterButton />}
       {showCart && <FloatingCartButton />}
     </div>
   );
