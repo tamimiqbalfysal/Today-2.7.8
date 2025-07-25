@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, addDoc, orderBy, serverTimestamp, doc, getDoc, setDoc, limit, Unsubscribe, updateDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, orderBy, serverTimestamp, doc, getDoc, setDoc, limit, Unsubscribe, updateDoc, Timestamp, writeBatch } from 'firebase/firestore';
 import type { Message, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -79,44 +79,36 @@ export default function ChatPage() {
   
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !chatId || !currentUser || !otherUser) return;
+    if (!newMessage.trim() || !chatId || !currentUser || !otherUser || !db) return;
+    
+    const messageText = newMessage;
+    setNewMessage('');
     
     try {
-        const chatRef = doc(db, 'chats', chatId);
-        const messagesRef = collection(chatRef, 'messages');
-        const messageText = newMessage;
-        setNewMessage('');
-        
-        const messageData = {
+        const messagesCollectionRef = collection(db, 'chats', chatId, 'messages');
+
+        await addDoc(messagesCollectionRef, {
           chatId: chatId,
           senderId: currentUser.uid,
           text: messageText,
           timestamp: serverTimestamp(),
-        };
-
-        await addDoc(messagesRef, messageData);
-        
-        await setDoc(chatRef, {
-            participants: [currentUser.uid, otherUserId],
-            participantDetails: {
-              [currentUser.uid]: { name: currentUser.name, photoURL: currentUser.photoURL },
-              [otherUser.uid]: { name: otherUser.name, photoURL: otherUser.photoURL },
-            },
-            lastMessage: {
-                text: messageText,
-                senderId: currentUser.uid,
-                timestamp: Timestamp.now()
-            }
-        }, { merge: true });
+        });
 
     } catch(error: any) {
         console.error("Error sending message:", error);
+        setNewMessage(messageText); // Restore message on failure
         if (error.code === 'permission-denied') {
             toast({
                 variant: 'destructive',
                 title: 'Permission Denied',
                 description: "You don't have permission to send messages. Check your Firestore security rules for writing to the 'chats' collection and its 'messages' subcollection.",
                 duration: 9000
+            });
+        } else {
+             toast({
+                variant: 'destructive',
+                title: 'Error Sending Message',
+                description: "Could not send your message. Please try again.",
             });
         }
     }
