@@ -135,7 +135,7 @@ export default function AttomPage() {
             const categoriesToFetch = ['Tribe', 'Gift Garden', 'Video Bazaar', 'Ogrim'];
             
             const productPromises = categoriesToFetch.map(category => {
-                const q = query(collection(db, 'posts'), where('category', '==', category), orderBy('timestamp', 'desc'));
+                const q = query(collection(db, 'posts'), where('category', '==', category));
                 return getDocs(q);
             });
             
@@ -148,7 +148,6 @@ export default function AttomPage() {
                 });
             });
             
-            // This sort is now redundant if individual queries are ordered, but good for safety
             fetchedProducts.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
             
             setProducts(fetchedProducts);
@@ -328,4 +327,3 @@ export default function AttomPage() {
       </div>
   );
 }
-
