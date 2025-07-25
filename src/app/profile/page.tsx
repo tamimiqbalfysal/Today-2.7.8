@@ -101,6 +101,20 @@ export default function ProfilePage() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Donor profile states
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [donorBloodGroup, setDonorBloodGroup] = useState(user?.donorBloodGroup || '');
+  const [donorLocation, setDonorLocation] = useState(user?.donorLocation || '');
+  const [donorHospitals, setDonorHospitals] = useState(user?.donorNearestHospitals || '');
+
+  useEffect(() => {
+    if (user) {
+        setDonorBloodGroup(user.donorBloodGroup || '');
+        setDonorLocation(user.donorLocation || '');
+        setDonorHospitals(user.donorNearestHospitals || '');
+    }
+  }, [user]);
+
   useEffect(() => {
     if (!user || !db) {
         setIsDataLoading(false);
@@ -109,37 +123,30 @@ export default function ProfilePage() {
 
     setIsDataLoading(true);
     
+    // Fetch Posts
     const postsCol = collection(db, 'posts');
     const authoredPostsQuery = query(postsCol, where("authorId", "==", user.uid));
-    const likedPostsQuery = query(postsCol, where("likes", "array-contains", user.uid));
-    const laughedPostsQuery = query(postsCol, where("laughs", "array-contains", user.uid));
+    
+    const unsubscribePosts = onSnapshot(authoredPostsQuery, (snapshot) => {
+        const authoredPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+        authoredPosts.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+        setPosts(authoredPosts);
+        setIsDataLoading(false);
+    }, (error) => {
+        console.error("Error fetching user posts:", error);
+        setIsDataLoading(false);
+    });
 
-    const unsubAuthored = onSnapshot(authoredPostsQuery, (authoredSnapshot) => {
-        const authoredPosts = authoredSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
-        const unsubLiked = onSnapshot(likedPostsQuery, (likedSnapshot) => {
-            const likedPosts = likedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
-            const unsubLaughed = onSnapshot(laughedPostsQuery, (laughedSnapshot) => {
-                const laughedPosts = laughedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
-                const allPosts = [...authoredPosts, ...likedPosts, ...laughedPosts];
-                const uniquePosts = Array.from(new Map(allPosts.map(p => [p.id, p])).values());
-                uniquePosts.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
-                setPosts(uniquePosts);
-                setIsDataLoading(false);
-            }, (error) => { console.error("Error fetching laughed posts:", error); });
-            return () => unsubLaughed();
-        }, (error) => { console.error("Error fetching liked posts:", error); });
-        return () => unsubLiked();
-    }, (error) => { console.error("Error fetching user posts:", error); });
-
+    // Fetch Blood Requests
     const myQ = query(collection(db, 'bloodRequests'), where('authorId', '==', user.uid));
     const unsubscribeMy = onSnapshot(myQ, (snapshot) => {
         const fetchedMyRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BloodRequest));
-        fetchedMyRequests.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+        fetchedMyRequests.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
         setMyRequests(fetchedMyRequests);
     }, (error) => { console.error("Error fetching your blood requests:", error); });
 
     return () => {
-        unsubAuthored();
+        unsubscribePosts();
         unsubscribeMy();
     };
   }, [user, toast]);
@@ -164,6 +171,17 @@ export default function ProfilePage() {
   if (authLoading || (isDataLoading && user)) {
     return <ProfileSkeleton />;
   }
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingProfile(true);
+    await updateUserPreferences({
+        donorBloodGroup,
+        donorLocation,
+        donorNearestHospitals: donorHospitals,
+    });
+    setIsSavingProfile(false);
+  };
 
   const handleDeleteRequest = async (id: string) => {
     if(!db) return;
