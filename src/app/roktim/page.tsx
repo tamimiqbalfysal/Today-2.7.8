@@ -153,7 +153,7 @@ export default function RoktimPage() {
 
         const donorsQuery = query(collection(db, 'users'), where('donorBloodGroup', '!=', ''));
         const unsubDonors = onSnapshot(donorsQuery, (snapshot) => {
-            const fetchedDonors = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+            const fetchedDonors = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
             setAllDonors(fetchedDonors);
         }, (error) => {
             console.error("Error fetching donors:", error);
@@ -179,7 +179,7 @@ export default function RoktimPage() {
         }
         const lowercasedTerm = donorSearchTerm.toLowerCase();
         return allDonors.filter(donor =>
-            donor.id !== user?.uid && (
+            donor.uid !== user?.uid && (
             donor.name.toLowerCase().includes(lowercasedTerm) ||
             donor.donorLocation?.toLowerCase().includes(lowercasedTerm) ||
             donor.donorBloodGroup?.toLowerCase() === lowercasedTerm)
