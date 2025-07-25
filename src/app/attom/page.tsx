@@ -64,7 +64,7 @@ function ProductCard({ product }: { product: Product }) {
               displayMedia.type === 'image' ? (
                   <Image
                   src={displayMedia.url}
-                  alt={product.authorName}
+                  alt={product.title || product.authorName}
                   fill
                   className="object-cover"
                   />
@@ -83,11 +83,11 @@ function ProductCard({ product }: { product: Product }) {
         </Link>
         <div className="p-4 space-y-3 flex-grow flex flex-col">
           <p className="text-sm text-muted-foreground">{product.category}</p>
-          <h3 className="text-lg font-semibold flex-grow">{product.authorName}</h3>
+          <h3 className="text-lg font-semibold flex-grow">{product.title || product.authorName}</h3>
            <div className="flex items-center gap-2 pt-2">
               <Avatar className="h-6 w-6">
                 <AvatarImage src={product.authorPhotoURL} />
-                <AvatarFallback>{product.authorName.charAt(0)}</AvatarFallback>
+                <AvatarFallback>{(product.sellerName || product.authorName).charAt(0)}</AvatarFallback>
               </Avatar>
               <span className="text-xs font-medium text-muted-foreground">{product.sellerName || product.authorName}</span>
             </div>
@@ -108,7 +108,7 @@ function ProductCard({ product }: { product: Product }) {
       <div className="p-4 pt-0 mt-auto">
         <div className="flex flex-col gap-2">
             <Button asChild className="w-full">
-                <Link href={`/ogrim/${product.id}`}>
+                <Link href={`/attom/${product.id}`}>
                     <ShoppingCart className="mr-2 h-4 w-4" /> Pre-Order
                 </Link>
             </Button>
@@ -190,7 +190,7 @@ export default function AttomPage() {
     if (searchTerm) {
       const lowercasedTerm = searchTerm.toLowerCase();
       productsToShow = productsToShow.filter(p =>
-        (p.authorName).toLowerCase().includes(lowercasedTerm)
+        (p.title || p.authorName).toLowerCase().includes(lowercasedTerm)
       );
     }
 
