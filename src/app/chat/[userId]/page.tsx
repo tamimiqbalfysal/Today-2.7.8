@@ -85,24 +85,14 @@ export default function ChatPage() {
     setNewMessage('');
     
     try {
+        const batch = writeBatch(db);
+
         const chatRef = doc(db, 'chats', chatId);
+        const newMessageRef = doc(collection(chatRef, 'messages'));
 
-        // Ensure the chat document exists with participants
-        await setDoc(chatRef, { 
-            participants: [currentUser.uid, otherUserId]
-        }, { merge: true });
-
-        const messagesCollectionRef = collection(chatRef, 'messages');
-        // Add the new message
-        await addDoc(messagesCollectionRef, {
-            chatId: chatId,
-            senderId: currentUser.uid,
-            text: messageText,
-            timestamp: serverTimestamp(),
-        });
-        
-        // Update the chat metadata in a separate operation
-        await setDoc(chatRef, {
+        // Operation 1: Set/merge the chat document with participants and details
+        batch.set(chatRef, {
+            participants: [currentUser.uid, otherUserId],
             participantDetails: {
               [currentUser.uid]: { name: currentUser.name, photoURL: currentUser.photoURL },
               [otherUser.uid]: { name: otherUser.name, photoURL: otherUser.photoURL },
@@ -113,6 +103,16 @@ export default function ChatPage() {
                 timestamp: Timestamp.now()
             }
         }, { merge: true });
+        
+        // Operation 2: Add the new message document
+        batch.set(newMessageRef, {
+          chatId: chatId,
+          senderId: currentUser.uid,
+          text: messageText,
+          timestamp: serverTimestamp(),
+        });
+
+        await batch.commit();
 
     } catch(error: any) {
         console.error("Error sending message:", error);
