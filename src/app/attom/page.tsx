@@ -30,7 +30,7 @@ function ProductCard({ product }: { product: Product }) {
     addToCart(product, 1);
     toast({
       title: 'Added to Cart',
-      description: `${product.authorName} has been added to your cart.`,
+      description: `${product.title || product.authorName} has been added to your cart.`,
     });
   };
   
@@ -39,7 +39,6 @@ function ProductCard({ product }: { product: Product }) {
     const priceMatch = product.content.match(/(\d+(\.\d+)?)$/);
     return priceMatch ? parseFloat(priceMatch[1]).toFixed(2) : '0.00';
   }, [product.content]);
-
 
   const displayMedia = (product.media && product.media[0]) || { url: product.mediaURL, type: 'image' };
   
@@ -55,10 +54,12 @@ function ProductCard({ product }: { product: Product }) {
     }
   }, [product.currency]);
 
+  const productLink = product.category === 'Ogrim' ? `/ogrim/${product.id}` : `/attom/${product.id}`;
+
   return (
     <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex flex-col">
       <CardContent className="p-0">
-        <Link href={`/attom/${product.id}`} className="block">
+        <Link href={productLink} className="block">
           <div className="relative aspect-square bg-black">
             {displayMedia.url && (
               displayMedia.type === 'image' ? (
@@ -108,7 +109,7 @@ function ProductCard({ product }: { product: Product }) {
       <div className="p-4 pt-0 mt-auto">
         <div className="flex flex-col gap-2">
             <Button asChild className="w-full">
-                <Link href={`/attom/${product.id}`}>
+                <Link href={productLink}>
                     <ShoppingCart className="mr-2 h-4 w-4" /> Pre-Order
                 </Link>
             </Button>
