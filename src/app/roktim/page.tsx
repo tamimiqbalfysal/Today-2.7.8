@@ -38,7 +38,7 @@ function DonorCard({ donor }: { donor: User }) {
             <Droplets className="h-4 w-4" />
             <span>{donor.donorBloodGroup}</span>
         </div>
-        <Button asChild variant="outline" size="sm">
+        <Button asChild variant="outline" size="sm" disabled={!donor.uid}>
             <Link href={`/chat/${donor.uid}`}>
                 Chat
             </Link>
@@ -285,7 +285,7 @@ export default function RoktimPage() {
                                 <div className="mt-4 space-y-2 divide-y">
                                     {donorSearchTerm ? (
                                         filteredDonors.length > 0 ? (
-                                            filteredDonors.map(donor => <DonorCard key={donor.id} donor={donor} />)
+                                            filteredDonors.map(donor => <DonorCard key={donor.uid} donor={donor} />)
                                         ) : (
                                             <p className="text-center text-muted-foreground py-4">No donors found.</p>
                                         )
