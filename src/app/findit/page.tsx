@@ -93,9 +93,10 @@ export default function FinditPage() {
             setUserItems([]);
             return;
         };
-        const q = query(collection(db, "finditItems"), where("authorId", "==", user.uid), orderBy("timestamp", "desc"));
+        const q = query(collection(db, "finditItems"), where("authorId", "==", user.uid));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FinditItem));
+            items.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
             setUserItems(items);
         }, (error) => {
           console.error("Error fetching user items: ", error);
@@ -230,10 +231,10 @@ export default function FinditPage() {
                 )}
             </CardContent>
             <CardFooter>
-                <Button asChild className="w-full" disabled={!item.authorId || item.authorId === user?.uid}>
+                 <Button asChild className="w-full" disabled={!item.authorId || item.authorId === user?.uid}>
                     <Link href={`/chat/${item.authorId}`}>
                         <MessageSquare className="mr-2 h-4 w-4" />
-                        {item.type === 'lost' ? 'Chat Owner' : 'Chat Finder'}
+                        {item.type === 'found' ? 'Claim Item' : 'Chat Owner'}
                     </Link>
                 </Button>
             </CardFooter>
@@ -458,3 +459,5 @@ export default function FinditPage() {
       </div>
   );
 }
+
+    
