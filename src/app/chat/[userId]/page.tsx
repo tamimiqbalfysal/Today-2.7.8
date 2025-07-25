@@ -85,14 +85,34 @@ export default function ChatPage() {
     setNewMessage('');
     
     try {
-        const messagesCollectionRef = collection(db, 'chats', chatId, 'messages');
+        const batch = writeBatch(db);
 
-        await addDoc(messagesCollectionRef, {
+        const chatRef = doc(db, 'chats', chatId);
+        const newMessageRef = doc(collection(chatRef, 'messages'));
+
+        // Operation 1: Add new message
+        batch.set(newMessageRef, {
           chatId: chatId,
           senderId: currentUser.uid,
           text: messageText,
           timestamp: serverTimestamp(),
         });
+        
+        // Operation 2: Update chat metadata
+        batch.set(chatRef, {
+            participants: [currentUser.uid, otherUserId],
+            participantDetails: {
+              [currentUser.uid]: { name: currentUser.name, photoURL: currentUser.photoURL },
+              [otherUser.uid]: { name: otherUser.name, photoURL: otherUser.photoURL },
+            },
+            lastMessage: {
+                text: messageText,
+                senderId: currentUser.uid,
+                timestamp: Timestamp.now()
+            }
+        }, { merge: true });
+
+        await batch.commit();
 
     } catch(error: any) {
         console.error("Error sending message:", error);
@@ -103,12 +123,6 @@ export default function ChatPage() {
                 title: 'Permission Denied',
                 description: "You don't have permission to send messages. Check your Firestore security rules for writing to the 'chats' collection and its 'messages' subcollection.",
                 duration: 9000
-            });
-        } else {
-             toast({
-                variant: 'destructive',
-                title: 'Error Sending Message',
-                description: "Could not send your message. Please try again.",
             });
         }
     }
