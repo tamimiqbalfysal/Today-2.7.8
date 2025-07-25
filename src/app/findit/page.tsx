@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -8,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Search, Upload, X, Trash2 } from 'lucide-react';
+import { PlusCircle, Search, Upload, X, Trash2, Calendar, Clock, Tag, MessageSquare } from 'lucide-react';
 import Image from 'next/image';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -16,28 +17,40 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
 import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, Timestamp, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { format } from 'date-fns';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 
 interface FinditItem {
     id: string;
     name: string;
     description: string;
     location: string;
-    contact: string;
+    contactEmail: string;
+    contactPhone?: string;
     imageUrl?: string;
     imagePath?: string;
     type: 'lost' | 'found';
     authorId?: string;
     timestamp: Timestamp;
+    eventTimestamp?: Timestamp;
+    category?: string;
 }
 
 interface ItemFormState {
     name: string;
     description: string;
     location: string;
-    contact: string;
+    contactEmail: string;
+    contactPhone: string;
     image: File | null;
     imagePreview: string | null;
+    eventDateTime: string;
+    category: string;
 }
+
+const itemCategories = ['Human', 'Phone', 'Laptop', 'Keys', 'Wallet', 'Bag', 'Clothing', 'Other'];
 
 
 export default function FinditPage() {
@@ -45,8 +58,8 @@ export default function FinditPage() {
     const [allItems, setAllItems] = useState<FinditItem[]>([]);
     const [userItems, setUserItems] = useState<FinditItem[]>([]);
 
-    const [lostForm, setLostForm] = useState<ItemFormState>({ name: '', description: '', location: '', contact: '', image: null, imagePreview: null });
-    const [foundForm, setFoundForm] = useState<ItemFormState>({ name: '', description: '', location: '', contact: '', image: null, imagePreview: null });
+    const [lostForm, setLostForm] = useState<ItemFormState>({ name: '', description: '', location: '', contactEmail: '', contactPhone: '', image: null, imagePreview: null, eventDateTime: '', category: '' });
+    const [foundForm, setFoundForm] = useState<ItemFormState>({ name: '', description: '', location: '', contactEmail: '', contactPhone: '', image: null, imagePreview: null, eventDateTime: '', category: '' });
 
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('lost-and-found');
@@ -65,20 +78,27 @@ export default function FinditPage() {
             const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FinditItem));
             setAllItems(items);
             setIsLoading(false);
+        }, (error) => {
+            console.error("Error fetching all items:", error);
+            if (error.code === 'permission-denied') {
+              toast({ variant: 'destructive', title: 'Permission Error', description: 'Could not load items. Check your Firestore security rules.' });
+            }
+            setIsLoading(false);
         });
         return () => unsubscribe();
-    }, []);
+    }, [toast]);
 
     useEffect(() => {
         if (!db || !user) {
             setUserItems([]);
             return;
         };
-        const q = query(collection(db, "finditItems"), where("authorId", "==", user.uid));
+        const q = query(collection(db, "finditItems"), where("authorId", "==", user.uid), orderBy("timestamp", "desc"));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FinditItem));
-            items.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
             setUserItems(items);
+        }, (error) => {
+          console.error("Error fetching user items: ", error);
         });
         return () => unsubscribe();
     }, [user]);
@@ -147,11 +167,14 @@ export default function FinditPage() {
             name: form.name,
             description: form.description,
             location: form.location,
-            contact: form.contact,
+            contactEmail: form.contactEmail,
+            contactPhone: form.contactPhone,
             type: type,
+            category: form.category,
             ...(imageUrl && { imageUrl }),
             ...(imagePath && { imagePath }),
             ...(user && { authorId: user.uid }),
+            ...(form.eventDateTime && { eventTimestamp: Timestamp.fromDate(new Date(form.eventDateTime)) }),
         };
         
         try {
@@ -162,7 +185,7 @@ export default function FinditPage() {
             });
 
             toast({ title: 'Success', description: `Your ${type} item has been reported.` });
-            setForm({ name: '', description: '', location: '', contact: '', image: null, imagePreview: null });
+            setForm({ name: '', description: '', location: '', contactEmail: '', contactPhone: '', image: null, imagePreview: null, eventDateTime: '', category: '' });
             if (imageInputRef.current) imageInputRef.current.value = '';
             setActiveTab('lost-and-found');
         } catch (error) {
@@ -190,6 +213,7 @@ export default function FinditPage() {
         <Card className="overflow-hidden relative">
             <div className="relative w-full h-40">
                 <Image src={item.imageUrl || 'https://placehold.co/300x200.png'} alt={item.name} layout="fill" objectFit="cover" />
+                {item.category && <Badge className="absolute top-2 left-2">{item.category}</Badge>}
             </div>
             <CardHeader>
                 <CardTitle>{item.name}</CardTitle>
@@ -199,10 +223,18 @@ export default function FinditPage() {
                 <p className="text-sm mt-2">
                     <strong>{item.type === 'lost' ? 'Last seen:' : 'Found at:'}</strong> {item.location}
                 </p>
+                {item.eventTimestamp && (
+                    <p className="text-sm mt-2 flex items-center gap-1 text-muted-foreground">
+                        <Calendar className="h-4 w-4" /> {format(item.eventTimestamp.toDate(), 'PPP, p')}
+                    </p>
+                )}
             </CardContent>
             <CardFooter>
-                <Button className="w-full">
-                    {item.type === 'lost' ? 'Contact Owner' : 'Claim Item'}
+                <Button asChild className="w-full" disabled={!item.authorId || item.authorId === user?.uid}>
+                    <Link href={`/chat/${item.authorId}`}>
+                        <MessageSquare className="mr-2 h-4 w-4" />
+                        {item.type === 'lost' ? 'Chat Owner' : 'Chat Finder'}
+                    </Link>
                 </Button>
             </CardFooter>
             {onDelete && (
@@ -293,6 +325,17 @@ export default function FinditPage() {
                                                 <Label htmlFor="lost-item-name">Item Name</Label>
                                                 <Input id="lost-item-name" placeholder="e.g., Black Leather Wallet" value={lostForm.name} onChange={e => setLostForm(prev => ({ ...prev, name: e.target.value }))} disabled={isSubmitting} />
                                             </div>
+                                             <div className="space-y-1">
+                                                <Label htmlFor="lost-item-category">Category</Label>
+                                                <Select onValueChange={(value) => setLostForm(prev => ({...prev, category: value}))} value={lostForm.category}>
+                                                    <SelectTrigger id="lost-item-category">
+                                                        <SelectValue placeholder="Select a category" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {itemCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
                                             <div className="space-y-1">
                                                 <Label htmlFor="lost-item-desc">Description</Label>
                                                 <Textarea id="lost-item-desc" placeholder="Provide details like color, brand, or any identifying marks." value={lostForm.description} onChange={e => setLostForm(prev => ({ ...prev, description: e.target.value }))} disabled={isSubmitting} />
@@ -301,10 +344,18 @@ export default function FinditPage() {
                                                 <Label htmlFor="lost-item-loc">Last Seen Location</Label>
                                                 <Input id="lost-item-loc" placeholder="e.g., Central Park, near the fountain" value={lostForm.location} onChange={e => setLostForm(prev => ({ ...prev, location: e.target.value }))} disabled={isSubmitting} />
                                             </div>
+                                             <div className="space-y-1">
+                                                <Label htmlFor="lost-datetime">Date & Time Lost</Label>
+                                                <Input id="lost-datetime" type="datetime-local" value={lostForm.eventDateTime} onChange={e => setLostForm(prev => ({ ...prev, eventDateTime: e.target.value }))} disabled={isSubmitting} />
+                                            </div>
                                             <div className="space-y-1">
-                                                <Label htmlFor="lost-contact">Contact Info</Label>
-                                                <Input id="lost-contact" type="email" placeholder="your.email@example.com" value={lostForm.contact} onChange={e => setLostForm(prev => ({ ...prev, contact: e.target.value }))} disabled={isSubmitting} />
-                                            </div >
+                                                <Label htmlFor="lost-contact-email">Contact Email</Label>
+                                                <Input id="lost-contact-email" type="email" placeholder="your.email@example.com" value={lostForm.contactEmail} onChange={e => setLostForm(prev => ({ ...prev, contactEmail: e.target.value }))} disabled={isSubmitting} />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label htmlFor="lost-contact-phone">Contact Phone (Optional)</Label>
+                                                <Input id="lost-contact-phone" type="tel" placeholder="Your phone number" value={lostForm.contactPhone} onChange={e => setLostForm(prev => ({ ...prev, contactPhone: e.target.value }))} disabled={isSubmitting} />
+                                            </div>
                                             <div className="space-y-1">
                                                 <Label>Image (optional)</Label>
                                                 <Input type="file" ref={lostItemImageRef} onChange={(e) => handleImageChange(e, 'lost')} className="hidden" accept="image/*" disabled={isSubmitting} />
@@ -331,6 +382,17 @@ export default function FinditPage() {
                                                 <Input id="found-item-name" placeholder="e.g., Set of keys" value={foundForm.name} onChange={e => setFoundForm(prev => ({ ...prev, name: e.target.value }))} disabled={isSubmitting} />
                                             </div>
                                             <div className="space-y-1">
+                                                <Label htmlFor="found-item-category">Category</Label>
+                                                <Select onValueChange={(value) => setFoundForm(prev => ({...prev, category: value}))} value={foundForm.category}>
+                                                    <SelectTrigger id="found-item-category">
+                                                        <SelectValue placeholder="Select a category" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {itemCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="space-y-1">
                                                 <Label htmlFor="found-item-desc">Description</Label>
                                                 <Textarea id="found-item-desc" placeholder="Describe the item you found." value={foundForm.description} onChange={e => setFoundForm(prev => ({ ...prev, description: e.target.value }))} disabled={isSubmitting} />
                                             </div>
@@ -338,9 +400,17 @@ export default function FinditPage() {
                                                 <Label htmlFor="found-item-loc">Location Found</Label>
                                                 <Input id="found-item-loc" placeholder="e.g., On the bench at 5th Ave & Main St" value={foundForm.location} onChange={e => setFoundForm(prev => ({ ...prev, location: e.target.value }))} disabled={isSubmitting} />
                                             </div>
+                                            <div className="space-y-1">
+                                                <Label htmlFor="found-datetime">Date & Time Found</Label>
+                                                <Input id="found-datetime" type="datetime-local" value={foundForm.eventDateTime} onChange={e => setFoundForm(prev => ({ ...prev, eventDateTime: e.target.value }))} disabled={isSubmitting} />
+                                            </div>
                                              <div className="space-y-1">
-                                                <Label htmlFor="found-contact">Your Contact Info</Label>
-                                                <Input id="found-contact" type="email" placeholder="your.email@example.com" value={foundForm.contact} onChange={e => setFoundForm(prev => ({ ...prev, contact: e.target.value }))} disabled={isSubmitting} />
+                                                <Label htmlFor="found-contact-email">Your Contact Email</Label>
+                                                <Input id="found-contact-email" type="email" placeholder="your.email@example.com" value={foundForm.contactEmail} onChange={e => setFoundForm(prev => ({ ...prev, contactEmail: e.target.value }))} disabled={isSubmitting} />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label htmlFor="found-contact-phone">Your Contact Phone (Optional)</Label>
+                                                <Input id="found-contact-phone" type="tel" placeholder="Your phone number" value={foundForm.contactPhone} onChange={e => setFoundForm(prev => ({ ...prev, contactPhone: e.target.value }))} disabled={isSubmitting} />
                                             </div>
                                             <div className="space-y-1">
                                                 <Label>Image (optional)</Label>
