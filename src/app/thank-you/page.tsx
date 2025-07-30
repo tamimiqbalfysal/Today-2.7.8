@@ -2,14 +2,14 @@
 'use client';
 
 import Link from 'next/link';
-import { doc, getDoc, updateDoc, increment, collection, getDocs, deleteField, writeBatch, setDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, increment, collection, getDocs, deleteField, writeBatch, setDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { motion } from 'framer-motion';
 import Confetti from 'react-confetti';
 import { useState, useRef, useEffect } from 'react';
 
 import { db } from '@/lib/firebase';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
@@ -17,9 +17,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { GiveawayCard } from '@/components/fintrack/giveaway-card';
 import { useWindowSize } from '@/hooks/use-window-size';
 import { cn } from '@/lib/utils';
-import type { User } from '@/lib/types';
+import type { User, Giveaway } from '@/lib/types';
 import { Label } from '@/components/ui/label';
-import { Wand2, Loader2 } from 'lucide-react';
+import { Wand2, Loader2, History, Coins } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 
 function ThankYouSkeleton() {
@@ -72,6 +74,27 @@ export default function ThankYouPage() {
   const { width, height } = useWindowSize();
   const [selfGeneratedCode, setSelfGeneratedCode] = useState('');
   const [isCreatingCode, setIsCreatingCode] = useState(false);
+  const [giveawayHistory, setGiveawayHistory] = useState<Giveaway[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user || !db) {
+        setIsHistoryLoading(false);
+        return;
+    }
+
+    const historyQuery = query(collection(db, `users/${user.uid}/giveawayHistory`), orderBy('timestamp', 'desc'));
+    const unsubscribe = onSnapshot(historyQuery, (snapshot) => {
+        const history = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Giveaway));
+        setGiveawayHistory(history);
+        setIsHistoryLoading(false);
+    }, (error) => {
+        console.error("Error fetching giveaway history: ", error);
+        setIsHistoryLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   const fetchTotalCodes = async () => {
       if (!db) {
@@ -203,7 +226,7 @@ export default function ThankYouPage() {
         const currentUserRef = doc(db, 'users', user.uid);
         batch.update(currentUserRef, { credits: increment(-amount) });
 
-        // Distribute to other users
+        // Distribute to other users and record history
         allUsers.forEach(otherUser => {
             if (otherUser.uid === user.uid) return;
             const userShare = (otherUser.redeemedGiftCodes || 0) / totalRedeemed;
@@ -211,6 +234,15 @@ export default function ThankYouPage() {
             if (creditsToGive > 0) {
                 const otherUserRef = doc(db, 'users', otherUser.uid);
                 batch.update(otherUserRef, { credits: increment(creditsToGive) });
+                
+                const historyRef = doc(collection(db, `users/${otherUser.uid}/giveawayHistory`));
+                batch.set(historyRef, {
+                    giverId: user.uid,
+                    giverName: user.name,
+                    giverPhotoURL: user.photoURL,
+                    amountReceived: creditsToGive,
+                    timestamp: new Date(),
+                } as Omit<Giveaway, 'id'>);
             }
         });
         
@@ -390,6 +422,48 @@ export default function ThankYouPage() {
                 currentUser={user}
                 onGiveAway={handleGiveAway}
               />
+
+              <Card>
+                  <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                          <History className="h-6 w-6 text-primary" /> Giveaway History
+                      </CardTitle>
+                      <CardDescription>
+                          Credits you have received from other users.
+                      </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                      {isHistoryLoading ? (
+                          <div className="space-y-4">
+                              <Skeleton className="h-12 w-full" />
+                              <Skeleton className="h-12 w-full" />
+                          </div>
+                      ) : giveawayHistory.length > 0 ? (
+                          <div className="space-y-3">
+                              {giveawayHistory.map((item) => (
+                                  <div key={item.id} className="flex items-center justify-between p-3 rounded-md bg-secondary">
+                                      <div className="flex items-center gap-3">
+                                          <Avatar className="h-9 w-9">
+                                              <AvatarImage src={item.giverPhotoURL} />
+                                              <AvatarFallback>{item.giverName.charAt(0)}</AvatarFallback>
+                                          </Avatar>
+                                          <div>
+                                              <p className="text-sm font-semibold">From {item.giverName}</p>
+                                              <p className="text-xs text-muted-foreground">{formatDistanceToNow(item.timestamp.toDate(), { addSuffix: true })}</p>
+                                          </div>
+                                      </div>
+                                      <div className="flex items-center gap-1 font-bold text-green-500">
+                                        <Coins className="h-4 w-4" />
+                                        <span>+{item.amountReceived.toFixed(2)}</span>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      ) : (
+                          <p className="text-center text-muted-foreground py-4">You have not received any credits from giveaways yet.</p>
+                      )}
+                  </CardContent>
+              </Card>
               
               <Card>
                 <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6">
@@ -431,5 +505,3 @@ export default function ThankYouPage() {
     </>
   );
 }
-
-    

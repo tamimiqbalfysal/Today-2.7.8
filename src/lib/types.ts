@@ -175,3 +175,12 @@ export interface ThinkCourse {
   date: Timestamp;
   meetLink: string;
 }
+
+export interface Giveaway {
+  id: string;
+  giverId: string;
+  giverName: string;
+  giverPhotoURL: string;
+  amountReceived: number;
+  timestamp: Timestamp;
+}
