@@ -4,9 +4,8 @@ import type { Timestamp } from "firebase/firestore";
 
 export interface User {
   uid: string;
-  id?: string; // Add id for profile page fetching
   name: string;
-  username?: string;
+  username: string;
   email: string;
   photoURL?: string | null;
   redeemedGiftCodes?: number;
@@ -92,11 +91,12 @@ export interface Comment {
 
 export interface Notification {
   id: string;
-  type: 'like' | 'postDeleted' | 'postMadePrivate' | 'postMadePublic';
+  type: 'like' | 'postDeleted' | 'postMadePrivate' | 'postMadePublic' | 'giveaway';
   senderId: string;
   senderName: string;
   senderPhotoURL: string;
-  postId: string;
+  postId?: string; // postId is optional now
+  amount?: number; // for giveaways
   timestamp: Timestamp;
   read: boolean;
 }
