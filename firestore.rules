@@ -1,108 +1,92 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isUserAuthenticated() {
-      return request.auth != null;
-    }
-
-    function isUserProfile(userId) {
-      return isUserAuthenticated() && request.auth.uid == userId;
-    }
-
+  
+    // Helper function to check if the requesting user is an admin.
     function isAdmin() {
-      return isUserAuthenticated() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      // An admin's UID must exist as a document ID in the 'admins' collection.
+      return exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
+    // Admins have full read/write access to the entire database.
+    // This rule allows admins to perform management tasks like distributing credits.
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+    
+    // Rules for the 'users' collection
     match /users/{userId} {
-      allow read: if isUserAuthenticated();
-      allow create: if !isUserAuthenticated() || isUserProfile(userId);
-      // Admins can update any user profile (e.g., to add credits)
-      allow update: if isUserProfile(userId) || isAdmin();
-      allow delete: if isUserProfile(userId);
+      // A user can read their own document.
+      allow get: if request.auth.uid == userId;
+      // A user can update their own document.
+      allow update: if request.auth.uid == userId;
+      // Allow any authenticated user to create their own user document.
+      allow create: if request.auth.uid == userId;
+      
+      // Rules for user subcollections
+      match /notifications/{notificationId} {
+        // A user can read and write to their own notifications.
+        allow read, write: if request.auth.uid == userId;
+      }
+      match /giveawayHistory/{historyId} {
+        // A user can read their own giveaway history.
+        // Admins can write to it during distribution.
+        allow read: if request.auth.uid == userId;
+        allow write: if isAdmin();
+      }
     }
     
+    // Rules for the 'usernames' collection (for ensuring unique usernames)
     match /usernames/{username} {
-      allow read: if true;
-      allow create: if isUserAuthenticated();
-    }
-
-    match /posts/{postId} {
-      allow read: if true;
-      allow create: if isUserAuthenticated();
-      allow update, delete: if isUserAuthenticated() && (resource.data.authorId == request.auth.uid || isAdmin());
+      // Anyone can check if a username exists.
+      allow read;
+      // Any authenticated user can create a username document during signup.
+      allow create: if request.auth.uid != null;
     }
     
-    match /posts/{postId}/reviews/{reviewId} {
-        allow read: if true;
-        allow create: if isUserAuthenticated();
-    }
-    
-    match /posts/{postId}/preorders/{preorderId} {
-        allow read: if true;
-        allow create: if true; // Allow anyone to pre-order
-    }
-    
+    // Rules for 'giftCodes' and 'thinkCodes'
     match /giftCodes/{codeId} {
-      allow read, update: if isUserAuthenticated();
-      allow create: if isAdmin();
-      // Admins need to be able to list all gift codes
-      allow list: if isAdmin();
+      // Any authenticated user can read a code to check it, and update it to redeem it.
+      allow read, update: if request.auth.uid != null;
     }
-    
     match /thinkCodes/{codeId} {
-      allow read, update: if isUserAuthenticated();
-      allow create: if isAdmin();
-    }
-
-    match /courseAdmin/{docId} {
-      allow read: if true;
-      allow write: if isAdmin();
+        allow read, update: if request.auth.uid != null;
     }
     
+    // Rules for the 'admins' collection
     match /admins/{adminId} {
-      allow read, list: if isUserAuthenticated();
-      // Allow user to become first admin
-      allow create: if request.auth.token.email == 'tamimiqbal.fysal@gmail.com' && request.auth.uid == adminId;
-      // Only other admins can add/remove admins
-      allow write: if isAdmin();
-    }
-    
-    match /users/{userId}/notifications/{notificationId} {
-        allow read, write: if isUserProfile(userId);
-    }
-    
-    match /users/{userId}/giveawayHistory/{giveawayId} {
-        allow read: if isUserProfile(userId);
-        // Admins need to be able to write history for other users
-        allow create: if isAdmin();
+      // Only the primary super-admin can create the first admin document.
+      allow create: if request.auth.uid == adminId && request.auth.token.email == 'tamimiqbal.fysal@gmail.com';
+      // Admins can read the admin list.
+      allow read: if isAdmin();
     }
 
-    match /gigs/{gigId} {
-        allow read: if true;
-        allow create: if isUserAuthenticated();
-        allow update, delete: if isUserAuthenticated() && resource.data.sellerId == request.auth.uid;
+    // Rules for user-generated posts
+    match /posts/{postId} {
+      // Public posts are readable by anyone. Private posts are only readable by the author.
+      allow read: if resource.data.isPrivate == false || request.auth.uid == resource.data.authorId;
+      // Any authenticated user can create a post.
+      allow create: if request.auth.uid != null;
+      // A user can update or delete their own post.
+      allow update, delete: if request.auth.uid == resource.data.authorId;
+      
+      // Rules for reviews subcollection on posts
+      match /reviews/{reviewId} {
+          allow read;
+          allow create: if request.auth.uid != null;
+      }
     }
-
+    
+    // Rules for the chat system
     match /chats/{chatId} {
-        allow read, write: if isUserAuthenticated() && request.auth.uid in resource.data.participants;
-        allow list: if isUserAuthenticated();
-    }
-
-    match /chats/{chatId}/messages/{messageId} {
-        allow read, write: if isUserAuthenticated() && get(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.auth.uid]);
-    }
-    
-     match /finditItems/{itemId} {
-      allow read: if true;
-      allow create: if isUserAuthenticated();
-      allow delete: if isUserAuthenticated() && resource.data.authorId == request.auth.uid;
-    }
-    
-    match /bloodRequests/{requestId} {
-        allow read: if true;
-        allow create: if isUserAuthenticated();
-        allow delete: if isUserAuthenticated() && resource.data.authorId == request.auth.uid;
+      // A user can only access chats they are a participant in.
+      allow read, write: if request.auth.uid in resource.data.participants;
+      // Messages inherit permissions from the parent chat document.
+      match /messages/{messageId} {
+        allow read, write: if request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+      }
     }
   }
 }
