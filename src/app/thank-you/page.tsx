@@ -17,11 +17,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useWindowSize } from '@/hooks/use-window-size';
 import { cn } from '@/lib/utils';
 import type { User, Giveaway } from '@/lib/types';
-import { Label } from '@/components/ui/label';
-import { Wand2, Loader2, History, Coins, Search, BadgeCheck, BadgeX, Shield, Sparkles } from 'lucide-react';
+import { History, Coins, Shield } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
 
 
 function ThankYouSkeleton() {
@@ -54,7 +52,6 @@ function ThankYouSkeleton() {
               <Skeleton className="h-10 w-full" />
             </CardContent>
           </Card>
-          <Skeleton className="h-10 w-full" />
         </div>
       </main>
     </div>
@@ -63,7 +60,7 @@ function ThankYouSkeleton() {
 
 
 export default function ThankYouPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isAdmin } = useAuth();
   const [code, setCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const { toast } = useToast();
@@ -74,13 +71,6 @@ export default function ThankYouPage() {
   const { width, height } = useWindowSize();
   const [giveawayHistory, setGiveawayHistory] = useState<Giveaway[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
-
-  const [adminGiveawayAmount, setAdminGiveawayAmount] = useState('');
-  const [isDistributing, setIsDistributing] = useState(false);
-
-  const adminEmail = 'tamimiqbal.fysal@gmail.com';
-  const isAdmin = user?.email === adminEmail;
-
 
   useEffect(() => {
     if (!user || !db) {
@@ -113,6 +103,11 @@ export default function ThankYouPage() {
           setTotalGiftCodes(giftCodesSnapshot.size);
       } catch (error) {
           console.error("Error fetching total gift codes count:", error);
+          toast({
+              variant: "destructive",
+              title: "Error",
+              description: "Could not load the total number of gift codes."
+          });
       } finally {
           setIsTotalCodesLoading(false);
       }
@@ -168,6 +163,7 @@ export default function ThankYouPage() {
         description: 'Your Gift Code is submitted.',
       });
 
+      // Refetch total codes to include the one just submitted if it was new
       await fetchTotalCodes();
       
       setIsCelebrating(true);
@@ -189,61 +185,6 @@ export default function ThankYouPage() {
       });
     } finally {
       setIsVerifying(false);
-    }
-  };
-
-  const handleDistributeCredits = async () => {
-    if (!user || !db) return;
-    const giveawayAmount = parseInt(adminGiveawayAmount, 10);
-    if (isNaN(giveawayAmount) || giveawayAmount <= 0) {
-        toast({ variant: 'destructive', title: 'Invalid Amount', description: 'Please enter a positive number.' });
-        return;
-    }
-
-    setIsDistributing(true);
-    try {
-        const usersRef = collection(db, 'users');
-        const usersSnapshot = await getDocs(usersRef);
-        const allUsers: User[] = usersSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
-        const totalRedeemed = allUsers.reduce((sum, u) => sum + (u.redeemedGiftCodes || 0), 0);
-
-        if (totalRedeemed === 0) {
-            toast({
-                variant: "destructive",
-                title: "Cannot Distribute",
-                description: "No gift codes have been redeemed yet, so shares cannot be calculated.",
-            });
-            setIsDistributing(false);
-            return;
-        }
-
-        const batch = writeBatch(db);
-
-        allUsers.forEach(otherUser => {
-            const userShare = (otherUser.redeemedGiftCodes || 0) / totalRedeemed;
-            const creditsToGive = giveawayAmount * userShare;
-            if (creditsToGive > 0) {
-                const otherUserRef = doc(db, 'users', otherUser.uid);
-                batch.update(otherUserRef, { credits: increment(creditsToGive) });
-            }
-        });
-        
-        await batch.commit();
-
-        toast({
-            title: "Success!",
-            description: `Successfully distributed ${giveawayAmount} credits to all users!`,
-        });
-        setAdminGiveawayAmount('');
-    } catch (error: any) {
-        console.error("Error during giveaway:", error);
-        toast({
-            variant: "destructive",
-            title: "Giveaway Failed",
-            description: "An unexpected error occurred while distributing credits.",
-        });
-    } finally {
-        setIsDistributing(false);
     }
   };
 
@@ -335,49 +276,6 @@ export default function ThankYouPage() {
                 </CardContent>
               </Card>
 
-              {isAdmin && (
-                 <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                          <Shield className="h-6 w-6 text-primary" /> Admin Panel
-                      </CardTitle>
-                      <CardDescription>
-                        Distribute credits to all users based on their "Thank u, G!" share.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                        <Label htmlFor="giveaway-amount">Amount to Give Away</Label>
-                        <Input
-                            id="giveaway-amount"
-                            type="number"
-                            placeholder="e.g. 10000"
-                            value={adminGiveawayAmount}
-                            onChange={(e) => setAdminGiveawayAmount(e.target.value)}
-                            disabled={isDistributing}
-                        />
-                        </div>
-                        <Button
-                          className="w-full"
-                          onClick={handleDistributeCredits}
-                          disabled={isDistributing || !adminGiveawayAmount}
-                        >
-                          {isDistributing ? (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : (
-                              <Sparkles className="mr-2 h-4 w-4" />
-                          )}
-                          {isDistributing ? 'Distributing...' : 'Give Away Credits'}
-                        </Button>
-                    </CardContent>
-                    <CardFooter>
-                         <Button asChild variant="outline" className="w-full">
-                            <Link href="/admin">More Admin Tools</Link>
-                         </Button>
-                    </CardFooter>
-                  </Card>
-              )}
-
               <Card>
                   <CardHeader>
                       <CardTitle className="flex items-center gap-2">
@@ -452,6 +350,26 @@ export default function ThankYouPage() {
                   </a>
                 </CardContent>
               </Card>
+
+              {isAdmin && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                           <Shield className="h-6 w-6 text-primary" /> Admin Panel
+                        </CardTitle>
+                        <CardDescription>
+                            Access administrative features.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button asChild className="w-full">
+                            <Link href="/admin">
+                                Go to Admin Panel
+                            </Link>
+                        </Button>
+                    </CardContent>
+                </Card>
+              )}
 
             </div>
           </div>
