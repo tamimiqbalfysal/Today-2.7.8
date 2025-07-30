@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { doc, getDoc, updateDoc, increment, collection, getDocs, deleteField, writeBatch, setDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, increment, collection, getDocs, deleteField, writeBatch, setDoc, onSnapshot, query, orderBy, where } from 'firebase/firestore';
 import { motion } from 'framer-motion';
 import Confetti from 'react-confetti';
 import { useState, useRef, useEffect } from 'react';
@@ -76,6 +76,52 @@ export default function ThankYouPage() {
   const [isCreatingCode, setIsCreatingCode] = useState(false);
   const [giveawayHistory, setGiveawayHistory] = useState<Giveaway[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
+
+  const [createdCodes, setCreatedCodes] = useState(0);
+  const [submittedCodes, setSubmittedCodes] = useState(0);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+  const fetchGiftCodeStats = async () => {
+    if (!db) {
+      setIsLoadingStats(false);
+      return;
+    }
+    setIsLoadingStats(true);
+    try {
+      const giftCodesCollection = collection(db, 'giftCodes');
+      const q = query(giftCodesCollection, where('creatorId', '==', user?.uid));
+      const giftCodesSnapshot = await getDocs(q);
+      
+      let created = 0;
+      let submitted = 0;
+
+      giftCodesSnapshot.forEach(doc => {
+        created++;
+        if (doc.data().isUsed) {
+          submitted++;
+        }
+      });
+
+      setCreatedCodes(created);
+      setSubmittedCodes(submitted);
+
+    } catch (error) {
+      console.error("Error fetching gift code stats:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Could not load gift code statistics."
+      });
+    } finally {
+      setIsLoadingStats(false);
+    }
+  };
+
+  useEffect(() => {
+    if(user) {
+      fetchGiftCodeStats();
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!user || !db) {
@@ -170,6 +216,7 @@ export default function ThankYouPage() {
 
       // Refetch total codes to include the one just submitted if it was new
       await fetchTotalCodes();
+      await fetchGiftCodeStats();
       
       setIsCelebrating(true);
       setTimeout(() => setIsCelebrating(false), 5000); 
@@ -290,6 +337,7 @@ export default function ThankYouPage() {
         
         toast({ title: 'Success!', description: `Gift code "${selfGeneratedCode.trim()}" created successfully.` });
         setSelfGeneratedCode('');
+        await fetchGiftCodeStats();
 
     } catch(error: any) {
          console.error("Error creating self-generated gift code:", error);
@@ -306,6 +354,7 @@ export default function ThankYouPage() {
 
   const redeemedCodes = user?.redeemedGiftCodes || 0;
   const percentage = totalGiftCodes && totalGiftCodes > 0 ? (redeemedCodes / totalGiftCodes) * 100 : 0;
+  const codesLeft = createdCodes - submittedCodes;
 
   if (authLoading || !user) {
     return <ThankYouSkeleton />;
@@ -401,6 +450,20 @@ export default function ThankYouPage() {
                       </CardDescription>
                   </CardHeader>
                   <CardContent>
+                      <div className="grid grid-cols-3 gap-4 text-center mb-6 border-b pb-6">
+                        <div>
+                          <p className="text-2xl font-bold">{createdCodes}</p>
+                          <p className="text-xs text-muted-foreground">Created</p>
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold">{submittedCodes}</p>
+                          <p className="text-xs text-muted-foreground">Submitted</p>
+                        </div>
+                         <div>
+                          <p className="text-2xl font-bold">{codesLeft}</p>
+                          <p className="text-xs text-muted-foreground">Left</p>
+                        </div>
+                      </div>
                       <div className="space-y-2">
                           <Label htmlFor="self-generated-code">Your Unique Code</Label>
                           <Input 
@@ -505,3 +568,4 @@ export default function ThankYouPage() {
     </>
   );
 }
+
