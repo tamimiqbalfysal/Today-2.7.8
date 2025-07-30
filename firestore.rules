@@ -85,7 +85,7 @@ service cloud.firestore {
     // Allow anyone to read the general course info
     match /courseAdmin/{courseId} {
         allow read;
-        allow update: if get(/databases/$(database)/documents/admins/$(request.auth.email)) != null;
+        allow update: if request.auth.uid == 'tamimiqbal.fysal@gmail.com';
     }
     
     // Allow users to register for the free class
@@ -95,16 +95,17 @@ service cloud.firestore {
     }
 
     match /giftCodes/{codeId} {
-      allow read, update, create: if request.auth != null;
+      allow read, update: if request.auth != null;
+      allow create: if request.auth != null;
     }
     
     match /thinkCodes/{codeId} {
-      allow read, update, create: if request.auth != null;
+      allow read, update: if request.auth != null;
+      allow create: if request.auth != null;
     }
-    
-    match /admins/{adminId} {
-      allow read, list;
-      allow create, delete: if get(/databases/$(database)/documents/admins/$(request.auth.email)) != null;
+
+    match /admins/{adminEmail} {
+      allow read, write: if request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.token.email));
     }
 
     match /bloodRequests/{requestId} {
@@ -114,7 +115,7 @@ service cloud.firestore {
     }
 
     match /users/{userId}/notifications/{notificationId} {
-        allow read, list, update: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if request.auth != null && request.auth.uid == userId;
     }
   }
 }
