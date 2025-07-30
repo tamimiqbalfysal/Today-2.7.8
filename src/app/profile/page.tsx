@@ -169,18 +169,6 @@ export default function ProfilePage() {
       );
   }, [myRequests, searchTerm]);
 
-  const handleInitializeAdmin = async () => {
-    if (!user || !db) return;
-    try {
-      const adminRef = doc(db, 'admins', user.uid);
-      await setDoc(adminRef, { email: user.email, addedAt: Timestamp.now() });
-      toast({ title: 'Success', description: 'You have been initialized as an administrator.' });
-    } catch (error) {
-      console.error('Error initializing admin:', error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not initialize admin role.' });
-    }
-  };
-
   if (authLoading || (isDataLoading && user)) {
     return <ProfileSkeleton />;
   }
@@ -346,24 +334,6 @@ export default function ProfilePage() {
                 <ProfileCard user={user!} isOwnProfile={true} />
              </div>
              
-             {user?.email === 'tamimiqbal.fysal@gmail.com' && !isAdmin && (
-                <Card className="w-full max-w-sm mx-auto mt-8">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <UserCog className="h-6 w-6 text-primary" /> Admin Initialization
-                        </CardTitle>
-                        <CardDescription>
-                           Click the button to grant yourself administrative privileges. This is a one-time action.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Button className="w-full" onClick={handleInitializeAdmin}>
-                            Initialize Admin
-                        </Button>
-                    </CardContent>
-                </Card>
-             )}
-
              {isAdmin && (
                 <Card className="w-full max-w-sm mx-auto mt-8">
                     <CardHeader>

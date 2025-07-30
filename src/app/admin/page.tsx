@@ -15,7 +15,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 
 export default function AdminPage() {
-  const { user } = useAuth();
+  const { user, isAdmin, loading } = useAuth();
   const { toast } = useToast();
   const [lastGiftCode, setLastGiftCode] = useState('');
   const [lastThinkCode, setLastThinkCode] = useState('');
@@ -157,6 +157,26 @@ export default function AdminPage() {
         setIsDistributing(false);
     }
   };
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col h-screen">
+        <main className="flex-1 flex flex-col items-center justify-center">
+            <Card className="w-full max-w-md">
+                <CardHeader>
+                    <CardTitle>Access Denied</CardTitle>
+                    <CardDescription>You do not have permission to view this page.</CardDescription>
+                </CardHeader>
+                <CardFooter>
+                    <Button asChild className="w-full">
+                        <Link href="/">Go to Home</Link>
+                    </Button>
+                </CardFooter>
+            </Card>
+        </main>
+      </div>
+    )
+  }
 
   return (
       <div className="flex flex-col h-screen">
