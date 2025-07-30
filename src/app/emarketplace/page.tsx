@@ -256,6 +256,9 @@ export default function EMarketplacePage() {
               <Button asChild variant="outline">
                 <Link href="/tribe">Tribe</Link>
               </Button>
+              <Button asChild variant="outline">
+                <Link href="/thank-you">Thanku G</Link>
+              </Button>
             </div>
             
             <div className="mb-8 max-w-lg mx-auto">
