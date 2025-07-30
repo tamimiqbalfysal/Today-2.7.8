@@ -1,8 +1,9 @@
 
+
 'use client';
 
 import Link from 'next/link';
-import { doc, getDoc, updateDoc, increment, collection, getDocs, deleteField, writeBatch, setDoc, onSnapshot, query, orderBy, where } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, increment, collection, getDocs, deleteField, writeBatch, setDoc, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { motion } from 'framer-motion';
 import Confetti from 'react-confetti';
 import { useState, useRef, useEffect } from 'react';
@@ -52,6 +53,7 @@ function ThankYouSkeleton() {
               <Skeleton className="h-10 w-full" />
             </CardContent>
           </Card>
+          <Skeleton className="h-10 w-full" />
         </div>
       </main>
     </div>
@@ -72,13 +74,17 @@ export default function ThankYouPage() {
   const [giveawayHistory, setGiveawayHistory] = useState<Giveaway[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
 
+  const adminEmail = 'tamimiqbal.fysal@gmail.com';
+  const isAdmin = user?.email === adminEmail;
+
+
   useEffect(() => {
     if (!user || !db) {
         setIsHistoryLoading(false);
         return;
     }
 
-    const historyQuery = query(collection(db, `users/${user.uid}/giveawayHistory`), orderBy('timestamp', 'desc'));
+    const historyQuery = query(collection(db, `users/${user.uid}/giveawayHistory`), orderBy('timestamp', 'desc'), limit(10));
     const unsubscribe = onSnapshot(historyQuery, (snapshot) => {
         const history = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Giveaway));
         setGiveawayHistory(history);

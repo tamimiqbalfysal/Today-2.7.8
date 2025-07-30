@@ -1,8 +1,9 @@
 
+
 'use client';
 
 import { useState } from 'react';
-import { collection, doc, setDoc, updateDoc, increment, writeBatch, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, updateDoc, increment, writeBatch, getDocs, Timestamp, query, orderBy, limit, deleteDoc } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
@@ -13,6 +14,8 @@ import { Label } from '@/components/ui/label';
 import { Copy, Gift, BrainCircuit, BookOpenCheck, Coins, Sparkles, UserCog } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogOverlay, AlertDialogPortal } from '@/components/ui/alert-dialog';
 
 export default function AdminPage() {
   const { user, isAdmin, loading } = useAuth();
@@ -119,7 +122,7 @@ export default function AdminPage() {
       const batch = writeBatch(db);
       let usersToReceiveCredits = 0;
       
-      usersSnapshot.forEach(userDoc => {
+      for (const userDoc of usersSnapshot.docs) {
         const userId = userDoc.id;
         const userData = userDoc.data();
         const shares = userData.redeemedGiftCodes || 0;
@@ -142,7 +145,7 @@ export default function AdminPage() {
             });
           }
         }
-      });
+      };
       
       if (usersToReceiveCredits === 0) {
           toast({ variant: "destructive", title: "No Participants", description: "No users have submitted gift codes yet." });
@@ -151,6 +154,24 @@ export default function AdminPage() {
       }
 
       await batch.commit();
+      
+      // After distribution, clean up old history for each user
+      for (const userDoc of usersSnapshot.docs) {
+          const userId = userDoc.id;
+          const giveawayHistoryRef = collection(db, `users/${userId}/giveawayHistory`);
+          const q = query(giveawayHistoryRef, orderBy('timestamp', 'desc'));
+          const historySnapshot = await getDocs(q);
+
+          if (historySnapshot.docs.length > 10) {
+              const deleteBatch = writeBatch(db);
+              const docsToDelete = historySnapshot.docs.slice(10);
+              docsToDelete.forEach(docToDelete => {
+                  deleteBatch.delete(docToDelete.ref);
+              });
+              await deleteBatch.commit();
+          }
+      }
+
 
       toast({ title: 'Success!', description: `${amount} credits have been distributed to ${usersToReceiveCredits} user(s).` });
       setGiveawayAmount('');
@@ -162,9 +183,39 @@ export default function AdminPage() {
         setIsDistributing(false);
     }
   };
+  
+   const handleInitializeAdmin = async () => {
+    if (!db || !user) return;
+    try {
+      const adminRef = doc(db, 'admins', user.uid);
+      await setDoc(adminRef, { email: user.email, addedAt: Timestamp.now() });
+      toast({ title: 'Success', description: 'You have been initialized as an administrator.' });
+    } catch (error) {
+      console.error("Error initializing admin:", error);
+      toast({ variant: 'destructive', title: 'Initialization Failed', description: 'Could not set you as admin.' });
+    }
+  };
 
   if (loading) {
       return null;
+  }
+
+  if (user?.email === 'tamimiqbal.fysal@gmail.com' && !isAdmin) {
+    return (
+       <div className="flex flex-col h-screen">
+        <main className="flex-1 flex flex-col items-center justify-center">
+            <Card className="w-full max-w-md">
+                <CardHeader>
+                    <CardTitle>Admin Initialization</CardTitle>
+                    <CardDescription>Click the button below to become the first administrator for this application.</CardDescription>
+                </CardHeader>
+                <CardFooter>
+                    <Button onClick={handleInitializeAdmin} className="w-full">Initialize Admin</Button>
+                </CardFooter>
+            </Card>
+        </main>
+      </div>
+    )
   }
 
   if (!isAdmin) {
