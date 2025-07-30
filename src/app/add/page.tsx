@@ -183,7 +183,7 @@ export default function AddPage() {
                                   </div>
                                   <div className="w-full mt-auto space-y-2">
                                     <Button asChild className="w-full" variant="outline">
-                                      <Link href={app.href}>Local</Link>
+                                      <Link href={app.href}>Atom</Link>
                                     </Button>
                                     <Button
                                       onClick={() => addAppToDrawer(app)}
