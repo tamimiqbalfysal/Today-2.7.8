@@ -14,7 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PostFeed } from '@/components/fintrack/recent-transactions';
 import { addDoc } from 'firebase/firestore';
 import { Input } from '@/components/ui/input';
-import { Search, HeartPulse, Droplets, Hospital, Phone, Trash2, Loader2, Star, Shield } from 'lucide-react';
+import { Search, HeartPulse, Droplets, Hospital, Phone, Trash2, Loader2, Star, Shield, UserCog } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -168,6 +168,18 @@ export default function ProfilePage() {
         (req.notes && req.notes.toLowerCase().includes(searchTerm.toLowerCase()))
       );
   }, [myRequests, searchTerm]);
+
+  const handleInitializeAdmin = async () => {
+    if (!user || !db) return;
+    try {
+      const adminRef = doc(db, 'admins', user.uid);
+      await setDoc(adminRef, { email: user.email, addedAt: Timestamp.now() });
+      toast({ title: 'Success', description: 'You have been initialized as an administrator.' });
+    } catch (error) {
+      console.error('Error initializing admin:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not initialize admin role.' });
+    }
+  };
 
   if (authLoading || (isDataLoading && user)) {
     return <ProfileSkeleton />;
@@ -334,6 +346,24 @@ export default function ProfilePage() {
                 <ProfileCard user={user!} isOwnProfile={true} />
              </div>
              
+             {user?.email === 'tamimiqbal.fysal@gmail.com' && !isAdmin && (
+                <Card className="w-full max-w-sm mx-auto mt-8">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <UserCog className="h-6 w-6 text-primary" /> Admin Initialization
+                        </CardTitle>
+                        <CardDescription>
+                           Click the button to grant yourself administrative privileges. This is a one-time action.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button className="w-full" onClick={handleInitializeAdmin}>
+                            Initialize Admin
+                        </Button>
+                    </CardContent>
+                </Card>
+             )}
+
              {isAdmin && (
                 <Card className="w-full max-w-sm mx-auto mt-8">
                     <CardHeader>
