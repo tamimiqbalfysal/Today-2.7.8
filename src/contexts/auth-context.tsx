@@ -90,6 +90,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               followers: userData.followers || [],
               following: userData.following || [],
               defaultLocalColor: userData.defaultLocalColor,
+              donorBloodGroup: userData.donorBloodGroup,
+              donorLocation: userData.donorLocation,
+              donorNearestHospitals: userData.donorNearestHospitals,
             });
             setLoading(false);
           }, (error) => {

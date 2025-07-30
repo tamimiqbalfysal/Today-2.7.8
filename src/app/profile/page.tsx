@@ -14,7 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PostFeed } from '@/components/fintrack/recent-transactions';
 import { addDoc } from 'firebase/firestore';
 import { Input } from '@/components/ui/input';
-import { Search, HeartPulse, Droplets, Hospital, Phone, Trash2, Loader2, Star } from 'lucide-react';
+import { Search, HeartPulse, Droplets, Hospital, Phone, Trash2, Loader2, Star, Shield } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { formatDistanceToNow } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import Link from 'next/link';
 
 
 const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -94,7 +95,7 @@ function ProfileSkeleton() {
 }
 
 export default function ProfilePage() {
-  const { user, updateUserPreferences, loading: authLoading } = useAuth();
+  const { user, updateUserPreferences, loading: authLoading, isAdmin } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [myRequests, setMyRequests] = useState<BloodRequest[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
@@ -332,6 +333,26 @@ export default function ProfilePage() {
              <div className="w-full max-w-sm mx-auto">
                 <ProfileCard user={user!} isOwnProfile={true} />
              </div>
+             
+             {isAdmin && (
+                <Card className="w-full max-w-sm mx-auto mt-8">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Shield className="h-6 w-6 text-primary" /> Admin Panel
+                        </CardTitle>
+                        <CardDescription>
+                            Access administrative features.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button asChild className="w-full">
+                            <Link href="/admin">
+                                Go to Admin Panel
+                            </Link>
+                        </Button>
+                    </CardContent>
+                </Card>
+             )}
 
              <div className="mt-8 mb-6 max-w-lg mx-auto">
                 <div className="relative">
@@ -346,29 +367,25 @@ export default function ProfilePage() {
                 </div>
             </div>
              
-            <div className="space-y-8 mt-8">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Your Request History</CardTitle>
-                        <CardDescription>A record of the blood requests you've made.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {filteredRequests.length > 0 ? (
-                            filteredRequests.map(req => (
-                                <RequestCard 
-                                    key={req.id} 
-                                    request={req}
-                                    onDelete={handleDeleteRequest}
-                                />
-                            ))
-                        ) : (
-                            <p className="text-center text-muted-foreground py-8">
-                                {searchTerm ? `No requests found for "${searchTerm}".` : "You haven't made any requests yet."}
-                            </p>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
+            {filteredRequests.length > 0 && (
+              <div className="space-y-8 mt-8">
+                  <Card>
+                      <CardHeader>
+                          <CardTitle>Your Request History</CardTitle>
+                          <CardDescription>A record of the blood requests you've made.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                          {filteredRequests.map(req => (
+                              <RequestCard 
+                                  key={req.id} 
+                                  request={req}
+                                  onDelete={handleDeleteRequest}
+                              />
+                          ))}
+                      </CardContent>
+                  </Card>
+              </div>
+            )}
 
             <div className="mt-8 space-y-6">
                 <PostFeed
