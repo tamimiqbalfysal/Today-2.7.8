@@ -2,18 +2,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, doc, setDoc, deleteDoc, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, getDocs, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, PlusCircle, Trash2, User } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { useAuth } from '@/contexts/auth-context';
 import type { User as AppUser } from '@/lib/types';
-import { onSnapshot } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export default function ManageAdminsPage() {
@@ -28,18 +26,23 @@ export default function ManageAdminsPage() {
     const adminsRef = collection(db, 'admins');
     const unsubscribe = onSnapshot(adminsRef, async (snapshot) => {
         const adminEmails = snapshot.docs.map(doc => doc.id);
-        if(adminEmails.length === 0) {
+        if (adminEmails.length === 0) {
             setAdmins([]);
             setIsLoading(false);
             return;
         }
 
-        const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('email', 'in', adminEmails));
-        const userDocs = await getDocs(q);
-        const adminUsers = userDocs.docs.map(doc => doc.data() as AppUser);
-        setAdmins(adminUsers);
-        setIsLoading(false);
+        try {
+            const usersRef = collection(db, 'users');
+            const q = query(usersRef, where('email', 'in', adminEmails));
+            const userDocs = await getDocs(q);
+            const adminUsers = userDocs.docs.map(doc => doc.data() as AppUser);
+            setAdmins(adminUsers);
+        } catch (error) {
+            console.error("Error fetching admin user data:", error)
+        } finally {
+            setIsLoading(false);
+        }
     });
 
     return () => unsubscribe();
@@ -67,7 +70,7 @@ export default function ManageAdminsPage() {
         setEmail('');
     } catch (error) {
         console.error("Error adding admin: ", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not add admin.' });
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not add admin. Check Firestore rules.' });
     } finally {
         setIsSubmitting(false);
     }
@@ -96,7 +99,7 @@ export default function ManageAdminsPage() {
               <CardHeader>
                 <CardTitle>Manage Administrators</CardTitle>
                 <CardDescription>
-                  Add or remove users who have administrative privileges.
+                  Add or remove users who have administrative privileges. Admins have broad access, so grant this power carefully.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -120,23 +123,27 @@ export default function ManageAdminsPage() {
                 <div className="space-y-4">
                     <h3 className="font-semibold">Current Admins</h3>
                     {isLoading ? <Loader2 className="animate-spin" /> : (
-                        admins.map(admin => (
-                            <div key={admin.uid} className="flex items-center justify-between p-2 rounded-md bg-secondary">
-                                <div className="flex items-center gap-3">
-                                    <Avatar>
-                                        <AvatarImage src={admin.photoURL || undefined} />
-                                        <AvatarFallback>{admin.name.charAt(0)}</AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                        <p className="font-medium">{admin.name}</p>
-                                        <p className="text-sm text-muted-foreground">{admin.email}</p>
+                        admins.length > 0 ? (
+                            admins.map(admin => (
+                                <div key={admin.uid} className="flex items-center justify-between p-2 rounded-md bg-secondary">
+                                    <div className="flex items-center gap-3">
+                                        <Avatar>
+                                            <AvatarImage src={admin.photoURL || undefined} />
+                                            <AvatarFallback>{admin.name.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <p className="font-medium">{admin.name}</p>
+                                            <p className="text-sm text-muted-foreground">{admin.email}</p>
+                                        </div>
                                     </div>
+                                    <Button variant="ghost" size="icon" onClick={() => handleRemoveAdmin(admin.email)}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
                                 </div>
-                                <Button variant="ghost" size="icon" onClick={() => handleRemoveAdmin(admin.email)}>
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                            </div>
-                        ))
+                            ))
+                        ) : (
+                           <p className="text-sm text-muted-foreground">No other admins found.</p>
+                        )
                     )}
                 </div>
                  <div className="flex justify-end gap-2 pt-4">
