@@ -254,7 +254,7 @@ export default function TribePage() {
               Sell your unique creations to the community.
             </p>
             <Button asChild className="mt-8" variant="outline">
-              <Link href="/emarketplace">Go Back to the Store</Link>
+              <Link href="/emarketplace">eMarketplace</Link>
             </Button>
           </div>
 
