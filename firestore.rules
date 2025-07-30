@@ -3,90 +3,94 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper function to check if the requesting user is an admin.
+
     function isAdmin() {
-      // An admin's UID must exist as a document ID in the 'admins' collection.
+      // Check if the requesting user's UID exists in the /admins collection.
       return exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
-    // Admins have full read/write access to the entire database.
-    // This rule allows admins to perform management tasks like distributing credits.
-    match /{document=**} {
-      allow read, write: if isAdmin();
-    }
-    
-    // Rules for the 'users' collection
+    // Admins can manage all user data, including distributing credits.
     match /users/{userId} {
-      // A user can read their own document.
-      allow get: if request.auth.uid == userId;
-      // A user can update their own document.
-      allow update: if request.auth.uid == userId;
-      // Allow any authenticated user to create their own user document.
+      allow read: if request.auth != null;
       allow create: if request.auth.uid == userId;
-      
-      // Rules for user subcollections
-      match /notifications/{notificationId} {
-        // A user can read and write to their own notifications.
-        allow read, write: if request.auth.uid == userId;
-      }
-      match /giveawayHistory/{historyId} {
-        // A user can read their own giveaway history.
-        // Admins can write to it during distribution.
-        allow read: if request.auth.uid == userId;
-        allow write: if isAdmin();
-      }
-    }
-    
-    // Rules for the 'usernames' collection (for ensuring unique usernames)
-    match /usernames/{username} {
-      // Anyone can check if a username exists.
-      allow read;
-      // Any authenticated user can create a username document during signup.
-      allow create: if request.auth.uid != null;
-    }
-    
-    // Rules for 'giftCodes' and 'thinkCodes'
-    match /giftCodes/{codeId} {
-      // Any authenticated user can read a code to check it, and update it to redeem it.
-      allow read, update: if request.auth.uid != null;
-    }
-    match /thinkCodes/{codeId} {
-        allow read, update: if request.auth.uid != null;
-    }
-    
-    // Rules for the 'admins' collection
-    match /admins/{adminId} {
-      // Only the primary super-admin can create the first admin document.
-      allow create: if request.auth.uid == adminId && request.auth.token.email == 'tamimiqbal.fysal@gmail.com';
-      // Admins can read the admin list.
-      allow read: if isAdmin();
+      allow update(data): if request.auth.uid == userId
+                          || (isAdmin() && 'credits' in data);
     }
 
-    // Rules for user-generated posts
+    match /users/{userId}/giveawayHistory/{historyId} {
+      allow read: if request.auth.uid == userId;
+      // Only admins can create giveaway history records for other users.
+      allow create: if isAdmin();
+      // Allow users to delete their own history if needed in the future.
+      allow delete: if request.auth.uid == userId;
+    }
+    
+    // Admins can read the full list of gift codes to calculate shares.
+    match /giftCodes/{codeId} {
+        allow read: if request.auth != null;
+        allow update: if request.auth != null;
+        // Only admins can create or delete gift codes.
+        allow create, delete: if isAdmin();
+    }
+    
+    // Admins can manage admin roles.
+    match /admins/{adminId} {
+        allow read, write, delete: if isAdmin();
+    }
+
+    // General Rules from here on
+    match /usernames/{username} {
+      allow read;
+      allow create: if request.auth != null;
+    }
+
     match /posts/{postId} {
-      // Public posts are readable by anyone. Private posts are only readable by the author.
-      allow read: if resource.data.isPrivate == false || request.auth.uid == resource.data.authorId;
-      // Any authenticated user can create a post.
-      allow create: if request.auth.uid != null;
-      // A user can update or delete their own post.
-      allow update, delete: if request.auth.uid == resource.data.authorId;
+      allow read: if resource.data.isPrivate == false || (request.auth != null && request.auth.uid == resource.data.authorId);
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && (request.auth.uid == resource.data.authorId || isAdmin());
+      allow delete: if request.auth != null && (request.auth.uid == resource.data.authorId || isAdmin());
       
-      // Rules for reviews subcollection on posts
       match /reviews/{reviewId} {
-          allow read;
-          allow create: if request.auth.uid != null;
+        allow read;
+        allow create: if request.auth != null;
+      }
+
+      match /preorders/{preorderId} {
+        allow read;
+        allow create: if request.auth != null;
       }
     }
     
-    // Rules for the chat system
+    match /thinkCodes/{codeId} {
+        allow read, update: if request.auth != null;
+        allow create, delete: if isAdmin();
+    }
+    
+    match /courseAdmin/{courseId} {
+      allow read;
+      allow write: if isAdmin();
+    }
+
     match /chats/{chatId} {
-      // A user can only access chats they are a participant in.
-      allow read, write: if request.auth.uid in resource.data.participants;
-      // Messages inherit permissions from the parent chat document.
+      allow read, write: if request.auth != null && request.auth.uid in resource.data.participants;
       match /messages/{messageId} {
-        allow read, write: if request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        allow read, write: if request.auth != null && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
       }
     }
+
+    match /finditItems/{itemId} {
+        allow read;
+        allow create: if request.auth != null;
+        allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
+    }
+    
+     match /gigs/{gigId} {
+        allow read;
+        allow create: if request.auth != null;
+     }
+
+     match /think_free_class_registrations/{registrationId} {
+        allow read, create;
+     }
   }
 }
