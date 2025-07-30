@@ -27,6 +27,7 @@ export interface User {
   donorNearestHospitals?: string;
   donorRating?: number;
   donorRatingCount?: number;
+  isAdmin?: boolean;
 }
 
 export interface Post {

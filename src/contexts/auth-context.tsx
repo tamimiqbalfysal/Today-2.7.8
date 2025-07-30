@@ -47,11 +47,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (unsubscribeAdmins) unsubscribeAdmins();
 
       if (firebaseUser) {
-        // Listen to admins collection to check for admin status
-        const adminsRef = collection(db, 'admins');
-        unsubscribeAdmins = onSnapshot(adminsRef, async (snapshot) => {
-            const adminEmails = snapshot.docs.map(doc => doc.id);
-            setIsAdmin(adminEmails.includes(firebaseUser.email || ''));
+        const adminDocRef = doc(db, 'admins', firebaseUser.uid);
+        unsubscribeAdmins = onSnapshot(adminDocRef, (doc) => {
+            setIsAdmin(doc.exists());
         });
         
         const userDocRef = doc(db, 'users', firebaseUser.uid);
@@ -72,27 +70,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const unreadNotifications = notifications.some(n => !n.read);
             
             setUser({
+              ...userData,
               uid: firebaseUser.uid,
               name: firebaseUser.displayName || userData.name,
-              username: userData.username,
               email: firebaseUser.email || userData.email,
               photoURL: firebaseUser.photoURL || userData.photoURL,
-              redeemedGiftCodes: userData.redeemedGiftCodes || 0,
-              redeemedThinkCodes: userData.redeemedThinkCodes || 0,
-              paymentCategory: userData.paymentCategory,
-              paymentAccountName: userData.paymentAccountName,
-              paymentAccountNumber: userData.paymentAccountNumber,
-              paymentNotes: userData.paymentNotes,
-              country: userData.country,
-              credits: userData.credits || 0,
               notifications: notifications,
               unreadNotifications: unreadNotifications,
-              followers: userData.followers || [],
-              following: userData.following || [],
-              defaultLocalColor: userData.defaultLocalColor,
-              donorBloodGroup: userData.donorBloodGroup,
-              donorLocation: userData.donorLocation,
-              donorNearestHospitals: userData.donorNearestHospitals,
             });
             setLoading(false);
           }, (error) => {

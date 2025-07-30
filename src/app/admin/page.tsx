@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Copy, Gift, BrainCircuit, BookOpenCheck, Coins, Users, Sparkles } from 'lucide-react';
+import { Copy, Gift, BrainCircuit, BookOpenCheck, Coins, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -187,25 +187,6 @@ export default function AdminPage() {
                     </div>
                     <Button onClick={handleGiveAway} disabled={isDistributing || !giveawayAmount} className="w-full">
                         {isDistributing ? 'Distributing...' : 'Give Away Credits'}
-                    </Button>
-                </CardContent>
-              </Card>
-
-               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="text-primary" />
-                    Manage Admins
-                  </CardTitle>
-                  <CardDescription>
-                    Add or remove other administrators for the app.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Button asChild className="w-full">
-                        <Link href="/admin/manage-admins">
-                            Go to Admin Management
-                        </Link>
                     </Button>
                 </CardContent>
               </Card>
