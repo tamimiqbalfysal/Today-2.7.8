@@ -58,13 +58,16 @@ function ProductCard({ product }: { product: Product }) {
   if(product.category === 'Ogrim') {
     productLink = `/ogrim/${product.id}`
   } else if (product.category === 'Credit Market') {
-      productLink = '#'; // Or a dedicated page for credit purchases
+      productLink = '/thank-you';
   }
 
   const isCreditSale = product.category === 'Credit Market';
 
   return (
-    <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex flex-col">
+    <Card className={cn(
+        "overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex flex-col",
+        isCreditSale && "theme-navy"
+    )}>
       <CardContent className="p-0">
         <Link href={productLink} className="block">
           <div className="relative aspect-square bg-secondary">
