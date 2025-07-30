@@ -18,7 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useWindowSize } from '@/hooks/use-window-size';
 import { cn } from '@/lib/utils';
 import type { User, Giveaway, Post } from '@/lib/types';
-import { History, Coins, Shield, DollarSign, Trash2 } from 'lucide-react';
+import { History, Coins, DollarSign, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Label } from '@/components/ui/label';
@@ -87,10 +87,6 @@ export default function ThankYouPage() {
   const [sellPrice, setSellPrice] = useState('');
   const [isSelling, setIsSelling] = useState(false);
 
-  const adminEmail = 'tamimiqbal.fysal@gmail.com';
-  const isAdmin = user?.email === adminEmail;
-
-
   useEffect(() => {
     if (!user || !db) {
         setIsHistoryLoading(false);
@@ -99,7 +95,7 @@ export default function ThankYouPage() {
     }
     
     // Giveaway History listener
-    const historyQuery = query(collection(db, `users/${'user.uid'}/giveawayHistory`), orderBy('timestamp', 'desc'), limit(10));
+    const historyQuery = query(collection(db, `users/${user.uid}/giveawayHistory`), orderBy('timestamp', 'desc'), limit(10));
     const unsubscribeHistory = onSnapshot(historyQuery, (snapshot) => {
         setGiveawayHistory(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Giveaway)));
         setIsHistoryLoading(false);
@@ -282,7 +278,7 @@ export default function ThankYouPage() {
                     transition={{ duration: 0.4 }}
                     className="cursor-pointer"
                   >
-                    <CardTitle className="text-3xl font-bold bg-primary-gradient bg-clip-text text-transparent">Thank u, G!</CardTitle>
+                    <CardTitle className="text-3xl font-bold bg-primary-gradient bg-clip-text text-transparent">Thanku G!</CardTitle>
                   </motion.div>
                 </CardHeader>
                 <CardContent className="space-y-4">

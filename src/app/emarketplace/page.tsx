@@ -94,7 +94,7 @@ function ProductCard({ product }: { product: Product }) {
           </div>
         </Link>
         <div className="p-4 space-y-3 flex-grow flex flex-col">
-          <p className="text-sm text-muted-foreground">{product.category}</p>
+          <p className="text-sm text-muted-foreground">{product.category === 'Credit Market' ? 'Thanku G' : product.category}</p>
           <h3 className="text-lg font-semibold flex-grow">{product.title || product.authorName}</h3>
            <div className="flex items-center gap-2 pt-2">
               <Avatar className="h-6 w-6">
@@ -287,7 +287,7 @@ export default function EMarketplacePage() {
                                 checked={activeFilters.includes(category)}
                                 onCheckedChange={() => handleFilterChange(category)}
                             >
-                                {category}
+                                {category === 'Credit Market' ? 'Thanku G' : category}
                             </DropdownMenuCheckboxItem>
                         ))}
                     </DropdownMenuContent>
