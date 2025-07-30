@@ -48,10 +48,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (firebaseUser) {
         // Check admin status
-        const adminDocRef = doc(db, 'admins', firebaseUser.email!);
-        unsubscribeAdmin = onSnapshot(adminDocRef, (doc) => {
-            setIsAdmin(doc.exists());
-        });
+        if(firebaseUser.email) {
+            const adminDocRef = doc(db, 'admins', firebaseUser.email);
+            unsubscribeAdmin = onSnapshot(adminDocRef, (doc) => {
+                setIsAdmin(doc.exists());
+            });
+        }
         
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {

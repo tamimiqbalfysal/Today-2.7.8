@@ -3,6 +3,7 @@
 
 import { usePathname } from 'next/navigation';
 import { AuthGuard } from '@/components/auth/auth-guard';
+import { ClientProviders } from '@/components/client-providers';
 
 // Routes that MUST have an authenticated user.
 const PROTECTED_ROUTES = [
