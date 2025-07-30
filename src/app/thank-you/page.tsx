@@ -99,7 +99,7 @@ export default function ThankYouPage() {
     }
     
     // Giveaway History listener
-    const historyQuery = query(collection(db, `users/${user.uid}/giveawayHistory`), orderBy('timestamp', 'desc'), limit(10));
+    const historyQuery = query(collection(db, `users/${'user.uid'}/giveawayHistory`), orderBy('timestamp', 'desc'), limit(10));
     const unsubscribeHistory = onSnapshot(historyQuery, (snapshot) => {
         setGiveawayHistory(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Giveaway)));
         setIsHistoryLoading(false);
@@ -483,26 +483,6 @@ export default function ThankYouPage() {
                   </a>
                 </CardContent>
               </Card>
-
-              {isAdmin && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                           <Shield className="h-6 w-6 text-primary" /> Admin Panel
-                        </CardTitle>
-                        <CardDescription>
-                            Access administrative features.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Button asChild className="w-full">
-                            <Link href="/admin">
-                                Go to Admin Panel
-                            </Link>
-                        </Button>
-                    </CardContent>
-                </Card>
-              )}
 
             </div>
           </div>
