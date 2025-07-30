@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { doc, getDoc, updateDoc, increment, collection, getDocs, deleteField } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, increment, collection, getDocs, deleteField, writeBatch, setDoc } from 'firebase/firestore';
 import { motion } from 'framer-motion';
 import Confetti from 'react-confetti';
 import { useState, useRef, useEffect } from 'react';
@@ -14,9 +14,13 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
-import { FeedbackCard, type FeedbackData } from '@/components/fintrack/feedback-card';
+import { GiveawayCard } from '@/components/fintrack/giveaway-card';
 import { useWindowSize } from '@/hooks/use-window-size';
 import { cn } from '@/lib/utils';
+import type { User } from '@/lib/types';
+import { Label } from '@/components/ui/label';
+import { Wand2, Loader2 } from 'lucide-react';
+
 
 function ThankYouSkeleton() {
   return (
@@ -66,6 +70,8 @@ export default function ThankYouPage() {
   const [isTotalCodesLoading, setIsTotalCodesLoading] = useState(true);
   const [isCelebrating, setIsCelebrating] = useState(false);
   const { width, height } = useWindowSize();
+  const [selfGeneratedCode, setSelfGeneratedCode] = useState('');
+  const [isCreatingCode, setIsCreatingCode] = useState(false);
 
   const fetchTotalCodes = async () => {
       if (!db) {
@@ -164,64 +170,107 @@ export default function ThankYouPage() {
     }
   };
 
-  const handleSaveFeedback = async (feedback: FeedbackData) => {
-    if (!user || !db) return;
+  const handleGiveAway = async (amount: number) => {
+    if (!user || !db || amount <= 0) return;
+    
+    if ((user.credits || 0) < amount) {
+        toast({
+            variant: "destructive",
+            title: "Insufficient Credits",
+            description: "You don't have enough credits to give away this amount.",
+        });
+        return;
+    }
 
     try {
-      const userDocRef = doc(db, 'users', user.uid);
-      await updateDoc(userDocRef, {
-        paymentCategory: feedback.category,
-        paymentAccountName: feedback.accountName,
-        paymentAccountNumber: feedback.accountNumber,
-        paymentNotes: feedback.anythingElse,
-      });
+        const usersRef = collection(db, 'users');
+        const usersSnapshot = await getDocs(usersRef);
+        const allUsers: User[] = usersSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
+        const totalRedeemed = allUsers.reduce((sum, u) => sum + (u.redeemedGiftCodes || 0), 0);
 
-      toast({
-        title: 'Success!',
-        description: 'Your payment information has been saved.',
-      });
+        if (totalRedeemed === 0) {
+            toast({
+                variant: "destructive",
+                title: "Cannot Distribute",
+                description: "No gift codes have been redeemed yet, so shares cannot be calculated.",
+            });
+            return;
+        }
+
+        const batch = writeBatch(db);
+
+        // Deduct from current user
+        const currentUserRef = doc(db, 'users', user.uid);
+        batch.update(currentUserRef, { credits: increment(-amount) });
+
+        // Distribute to other users
+        allUsers.forEach(otherUser => {
+            if (otherUser.uid === user.uid) return;
+            const userShare = (otherUser.redeemedGiftCodes || 0) / totalRedeemed;
+            const creditsToGive = amount * userShare;
+            if (creditsToGive > 0) {
+                const otherUserRef = doc(db, 'users', otherUser.uid);
+                batch.update(otherUserRef, { credits: increment(creditsToGive) });
+            }
+        });
+        
+        await batch.commit();
+
+        toast({
+            title: "Success!",
+            description: `You have successfully given away ${amount} credits!`,
+        });
+
     } catch (error: any) {
-      console.error("Error saving feedback:", error);
-      let description = 'Could not save your payment information.';
-       if (error.code === 'permission-denied') {
-        description = "Permission Denied. Please update your Firestore security rules to allow writes to the 'users' collection.";
-      }
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: description,
-      });
+        console.error("Error during giveaway:", error);
+        toast({
+            variant: "destructive",
+            title: "Giveaway Failed",
+            description: "An unexpected error occurred while distributing credits.",
+        });
     }
   };
   
-  const handleDeleteFeedback = async () => {
-    if (!user || !db) return;
-    try {
-      const userDocRef = doc(db, 'users', user.uid);
-      await updateDoc(userDocRef, {
-        paymentCategory: deleteField(),
-        paymentAccountName: deleteField(),
-        paymentAccountNumber: deleteField(),
-        paymentNotes: deleteField(),
-      });
-
-      toast({
-        title: 'Removed',
-        description: 'Your payment information has been removed.',
-      });
-    } catch (error: any) {
-      console.error("Error deleting feedback:", error);
-       let description = 'Could not remove your payment information.';
-       if (error.code === 'permission-denied') {
-        description = "Permission Denied. Please update your Firestore security rules to allow updates to the 'users' collection.";
-      }
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: description,
-      });
+  const handleCreateSelfGeneratedCode = async () => {
+    if (!selfGeneratedCode.trim()) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please enter a code to generate.' });
+        return;
     }
-  };
+     if (!db || !user) return;
+
+    setIsCreatingCode(true);
+    try {
+        const newCodeRef = doc(db, 'userGeneratedGiftCodes', selfGeneratedCode.trim());
+        const codeSnap = await getDoc(newCodeRef);
+
+        if(codeSnap.exists()) {
+            toast({ variant: 'destructive', title: 'Error', description: 'This gift code already exists. Please choose another.' });
+            setIsCreatingCode(false);
+            return;
+        }
+
+        await setDoc(newCodeRef, {
+            creatorId: user.uid,
+            creatorName: user.name,
+            isUsed: false,
+            createdAt: new Date(),
+        });
+        
+        toast({ title: 'Success!', description: `Gift code "${selfGeneratedCode.trim()}" created successfully.` });
+        setSelfGeneratedCode('');
+
+    } catch(error: any) {
+         console.error("Error creating self-generated gift code:", error);
+         let description = "An unexpected error occurred.";
+        if (error.code === 'permission-denied') {
+            description = "Permission Denied. Your security rules must allow writes to the 'userGeneratedGiftCodes' collection.";
+        }
+        toast({ variant: 'destructive', title: 'Error', description: description });
+    } finally {
+        setIsCreatingCode(false);
+    }
+  }
+
 
   const redeemedCodes = user?.redeemedGiftCodes || 0;
   const percentage = totalGiftCodes && totalGiftCodes > 0 ? (redeemedCodes / totalGiftCodes) * 100 : 0;
@@ -310,10 +359,36 @@ export default function ThankYouPage() {
                 </CardContent>
               </Card>
 
-              <FeedbackCard
-                user={user}
-                onSave={handleSaveFeedback}
-                onDelete={handleDeleteFeedback}
+              <Card>
+                  <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                          <Wand2 className="h-6 w-6 text-primary" /> Create Your Own Gift Code
+                      </CardTitle>
+                      <CardDescription>
+                          Generate a unique code to give to your customers or friends.
+                      </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                      <div className="space-y-2">
+                          <Label htmlFor="self-generated-code">Your Unique Code</Label>
+                          <Input 
+                              id="self-generated-code" 
+                              placeholder="e.g., SUMMER-SALE-2024"
+                              value={selfGeneratedCode}
+                              onChange={(e) => setSelfGeneratedCode(e.target.value)}
+                              disabled={isCreatingCode}
+                          />
+                      </div>
+                      <Button onClick={handleCreateSelfGeneratedCode} className="w-full mt-4" disabled={isCreatingCode || !selfGeneratedCode.trim()}>
+                        {isCreatingCode ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                        {isCreatingCode ? 'Creating...' : 'Create Code'}
+                      </Button>
+                  </CardContent>
+              </Card>
+
+              <GiveawayCard
+                currentUser={user}
+                onGiveAway={handleGiveAway}
               />
               
               <Card>

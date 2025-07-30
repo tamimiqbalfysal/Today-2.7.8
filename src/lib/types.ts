@@ -170,3 +170,8 @@ export interface BloodRequest {
   notes?: string;
   timestamp: Timestamp;
 }
+
+export interface ThinkCourse {
+  date: Timestamp;
+  meetLink: string;
+}
