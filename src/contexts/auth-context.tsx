@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 interface AuthContextType {
   user: AppUser | null;
   loading: boolean;
+  isAdmin: boolean;
   login: (email: string, password:string) => Promise<void>;
   logout: () => Promise<void>;
   signup: (name: string, username: string, email: string, password: string, country: string) => Promise<void>;
@@ -25,6 +26,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
@@ -35,20 +37,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    let unsubscribe: Unsubscribe | null = null;
+    let unsubscribeUser: Unsubscribe | null = null;
     let unsubscribeNotifications: Unsubscribe | null = null;
+    let unsubscribeAdmin: Unsubscribe | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
-      if (unsubscribe) unsubscribe();
+      if (unsubscribeUser) unsubscribeUser();
       if (unsubscribeNotifications) unsubscribeNotifications();
+      if (unsubscribeAdmin) unsubscribeAdmin();
 
-      unsubscribe = null;
-      unsubscribeNotifications = null;
-      
       if (firebaseUser) {
+        // Check admin status
+        const adminDocRef = doc(db, 'admins', firebaseUser.email!);
+        unsubscribeAdmin = onSnapshot(adminDocRef, (doc) => {
+            setIsAdmin(doc.exists());
+        });
+        
         const userDocRef = doc(db, 'users', firebaseUser.uid);
-
-        unsubscribe = onSnapshot(userDocRef, (userDoc) => {
+        unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
           if (!userDoc.exists()) {
             console.warn(`User document for UID ${firebaseUser.uid} not found.`);
             setUser(null);
@@ -92,33 +98,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         }, (error) => {
           console.error("Error fetching user document:", error);
-          if (error.code === 'permission-denied') {
-            toast({
-              variant: 'destructive',
-              title: 'User Profile Error',
-              description: "Could not load your user profile. Your security rules must allow reads on the 'users' collection.",
-              duration: 10000
-            });
-          }
           setLoading(false);
         });
 
       } else {
         setUser(null);
+        setIsAdmin(false);
         setLoading(false);
       }
     });
 
     return () => {
       unsubscribeAuth();
-      if (unsubscribe) unsubscribe();
+      if (unsubscribeUser) unsubscribeUser();
       if (unsubscribeNotifications) unsubscribeNotifications();
+      if (unsubscribeAdmin) unsubscribeAdmin();
     };
-  }, [toast]);
+  }, []);
 
   const login = async (email: string, password: string) => {
     if (!auth) {
-        const error = new Error("Firebase is not configured. Please add your Firebase project configuration to a .env file.");
+        const error = new Error("Firebase is not configured.");
         (error as any).code = 'auth/firebase-not-configured';
         throw error;
     }
@@ -128,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signup = async (name: string, username: string, email: string, password: string, country: string) => {
     if (!auth || !db) {
-        const error = new Error("Firebase is not configured. Please add your Firebase project configuration to a .env file.");
+        const error = new Error("Firebase is not configured.");
         (error as any).code = 'auth/firebase-not-configured';
         throw error;
     }
@@ -143,7 +143,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             photoURL: photoURL
         });
 
-        // Fetch all existing users to make them followers of the new user
         const usersCollectionRef = collection(db, 'users');
         const allUsersSnapshot = await getDocs(usersCollectionRef);
         const allUserIds = allUsersSnapshot.docs.map(doc => doc.id);
@@ -153,7 +152,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const batch = writeBatch(db);
 
-        // Set up the new user document
         batch.set(newUserDocRef, {
             uid: firebaseUser.uid,
             name: name,
@@ -165,11 +163,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             redeemedThinkCodes: 0,
             credits: 0,
             unreadNotifications: false,
-            followers: allUserIds, // The new user is now followed by all existing users
-            following: [], // New user starts by following no one
+            followers: allUserIds, 
+            following: [],
         });
 
-        // Update all existing users to follow the new user
         allUsersSnapshot.docs.forEach(userDoc => {
             const userRef = doc(db, 'users', userDoc.id);
             batch.update(userRef, {
@@ -226,7 +223,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       const batch = writeBatch(db);
 
-      // 1. Delete all posts by the user and their associated media
       const postsQuery = query(collection(db, 'posts'), where('authorId', '==', currentUser.uid));
       const postsSnapshot = await getDocs(postsQuery);
       
@@ -245,27 +241,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       });
 
-      // 2. Delete user document
       const userDocRef = doc(db, 'users', currentUser.uid);
       batch.delete(userDocRef);
 
-      // 3. Delete username document
       if (currentUserData.username) {
         const usernameDocRef = doc(db, 'usernames', currentUserData.username.toLowerCase());
         const usernameDoc = await getDoc(usernameDocRef);
-        // Ensure we are only deleting the username doc if it belongs to the current user
         if (usernameDoc.exists() && usernameDoc.data().uid === currentUser.uid) {
             batch.delete(usernameDocRef);
         }
       }
 
-      // Commit all Firestore deletions
       await batch.commit();
       
-      // Wait for all media deletions to complete
       await Promise.all(deletePromises);
       
-      // Finally, delete the Firebase Auth user
       await deleteUser(currentUser);
       
       router.push('/login');
@@ -275,7 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error("The password you entered is incorrect. Please try again.");
       }
       if (error.code === 'permission-denied') {
-        throw new Error("Permission denied. Check your Firestore security rules to allow deleting posts and user documents.");
+        throw new Error("Permission denied. Check your Firestore security rules.");
       }
       throw error;
     }
@@ -297,7 +287,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
 
-  const value = { user, loading, login, logout, signup, deleteAccount, updateUserPreferences };
+  const value = { user, loading, isAdmin, login, logout, signup, deleteAccount, updateUserPreferences };
 
   return (
     <AuthContext.Provider value={value}>

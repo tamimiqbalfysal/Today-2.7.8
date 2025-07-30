@@ -9,7 +9,6 @@ const PROTECTED_ROUTES = [
   '/today',
   '/profile',
   '/add',
-  '/admin',
   '/thank-you',
   '/tribe',
   '/office-express/create',
@@ -17,21 +16,32 @@ const PROTECTED_ROUTES = [
   '/chat',
 ];
 
+// Routes that require admin privileges
+const ADMIN_ROUTES = [
+    '/admin',
+];
+
 // Dynamic routes that are protected.
 const DYNAMIC_PROTECTED_ROUTES_PREFIX = [
-  '/admin/',
   '/chat/'
+];
+
+const DYNAMIC_ADMIN_ROUTES_PREFIX = [
+    '/admin/',
 ];
 
 export function RootGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   
-  // A route is protected if it's in PROTECTED_ROUTES or starts with a prefix from DYNAMIC_PROTECTED_ROUTES_PREFIX,
-  // but we must ensure we don't double-protect a base route that is also a prefix.
-  // For example, '/chat' is in PROTECTED_ROUTES, and we don't want to double-check '/chat/'.
-  const isDynamicProtected = DYNAMIC_PROTECTED_ROUTES_PREFIX.some(p => pathname.startsWith(p) && pathname !== p);
-
+  const isDynamicProtected = DYNAMIC_PROTECTED_ROUTES_PREFIX.some(p => pathname.startsWith(p));
   const isProtectedRoute = PROTECTED_ROUTES.includes(pathname) || isDynamicProtected;
+  
+  const isDynamicAdmin = DYNAMIC_ADMIN_ROUTES_PREFIX.some(p => pathname.startsWith(p));
+  const isAdminRoute = ADMIN_ROUTES.includes(pathname) || isDynamicAdmin;
+
+  if (isAdminRoute) {
+      return <AuthGuard adminOnly={true}>{children}</AuthGuard>;
+  }
 
   if (isProtectedRoute) {
     return <AuthGuard>{children}</AuthGuard>;

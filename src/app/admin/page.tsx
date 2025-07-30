@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { collection, doc, setDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, updateDoc, increment } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
@@ -10,15 +10,18 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Copy, Gift, BrainCircuit, BookOpenCheck, Coins } from 'lucide-react';
+import { Copy, Gift, BrainCircuit, BookOpenCheck, Coins, Users } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function AdminPage() {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [lastGiftCode, setLastGiftCode] = useState('');
   const [lastThinkCode, setLastThinkCode] = useState('');
   const [isGeneratingGift, setIsGeneratingGift] = useState(false);
   const [isGeneratingThink, setIsGeneratingThink] = useState(false);
+  const [isGeneratingCredits, setIsGeneratingCredits] = useState(false);
 
   const generateCode = async (type: 'gift' | 'think') => {
     if (!db) {
@@ -55,6 +58,34 @@ export default function AdminPage() {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({ title: 'Copied!', description: 'Code copied to clipboard.' });
+  };
+
+  const handleGenerateCredits = async () => {
+    if (!db || !user) {
+      toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
+      return;
+    }
+
+    setIsGeneratingCredits(true);
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        credits: increment(1000)
+      });
+      toast({
+        title: 'Credits Generated!',
+        description: '1000 credits have been added to your account.',
+      });
+    } catch (error: any) {
+      console.error(`Error generating credits:`, error);
+      let description = `An unexpected error occurred while generating credits.`;
+      if (error.code === 'permission-denied') {
+        description = `Permission Denied. Please check your Firestore security rules.`;
+      }
+      toast({ variant: 'destructive', title: 'Generation Failed', description });
+    } finally {
+      setIsGeneratingCredits(false);
+    }
   };
 
   return (
@@ -141,6 +172,46 @@ export default function AdminPage() {
                         <Link href="/admin/think-settings">
                             Go to Course Settings
                         </Link>
+                    </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="text-primary" />
+                    Manage Admins
+                  </CardTitle>
+                  <CardDescription>
+                    Add or remove other administrators for the application.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button asChild className="w-full">
+                        <Link href="/admin/manage-admins">
+                            Go to Admin Management
+                        </Link>
+                    </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Coins className="text-primary" />
+                    Generate Credits
+                  </CardTitle>
+                  <CardDescription>
+                    Automatically add 1000 credits to your own account.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button 
+                      className="w-full"
+                      onClick={handleGenerateCredits}
+                      disabled={isGeneratingCredits}
+                    >
+                      {isGeneratingCredits ? 'Generating...' : 'Generate 1000 Credits'}
                     </Button>
                 </CardContent>
               </Card>
