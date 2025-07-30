@@ -53,11 +53,10 @@ export default function TodayPage() {
     setIsDataLoading(true);
     const postsCol = collection(db, 'posts');
     
-    // The query fetches all public posts.
+    // The query fetches all public posts without server-side ordering to avoid index errors.
     const q = query(
       postsCol, 
-      where("isPrivate", "==", false),
-      orderBy("timestamp", "desc")
+      where("isPrivate", "==", false)
     );
 
     const unsubscribe = onSnapshot(q, async (querySnapshot) => {
@@ -77,6 +76,7 @@ export default function TodayPage() {
         setPosts(uniquePosts);
       } else {
         // For guests, just show sorted public posts.
+        publicPosts.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
         setPosts(publicPosts);
       }
 
