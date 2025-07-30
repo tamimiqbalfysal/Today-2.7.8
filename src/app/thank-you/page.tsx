@@ -240,7 +240,7 @@ export default function ThankYouPage() {
 
     setIsCreatingCode(true);
     try {
-        const newCodeRef = doc(db, 'userGeneratedGiftCodes', selfGeneratedCode.trim());
+        const newCodeRef = doc(db, 'giftCodes', selfGeneratedCode.trim());
         const codeSnap = await getDoc(newCodeRef);
 
         if(codeSnap.exists()) {
@@ -263,7 +263,7 @@ export default function ThankYouPage() {
          console.error("Error creating self-generated gift code:", error);
          let description = "An unexpected error occurred.";
         if (error.code === 'permission-denied') {
-            description = "Permission Denied. Your security rules must allow writes to the 'userGeneratedGiftCodes' collection.";
+            description = "Permission Denied. Your security rules must allow writes to the 'giftCodes' collection.";
         }
         toast({ variant: 'destructive', title: 'Error', description: description });
     } finally {
@@ -431,3 +431,5 @@ export default function ThankYouPage() {
     </>
   );
 }
+
+    
