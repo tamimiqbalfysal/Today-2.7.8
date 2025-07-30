@@ -30,16 +30,16 @@ export function ClientProviders({ children }: { children: ReactNode }) {
   const showCart = user || ['/attom', '/checkout', '/office-express'].some(p => pathname.startsWith(p));
 
   return (
-    <div className="flex flex-col h-screen">
-      {showHeader && <Header isVisible={isHeaderVisible} />}
-      <ScrollArea className="flex-1" onScroll={handleScroll}>
-        <RootGuard>
-          <NotificationSheet>
-            {children}
-          </NotificationSheet>
-        </RootGuard>
-      </ScrollArea>
-      {showCart && <FloatingCartButton />}
-    </div>
+    <RootGuard>
+        <div className="flex flex-col h-screen">
+          {showHeader && <Header isVisible={isHeaderVisible} />}
+          <ScrollArea className="flex-1" onScroll={handleScroll}>
+            <NotificationSheet>
+                {children}
+            </NotificationSheet>
+          </ScrollArea>
+          {showCart && <FloatingCartButton />}
+        </div>
+    </RootGuard>
   );
 }

@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -57,7 +56,8 @@ export default function TodayPage() {
     // The query fetches all public posts.
     const q = query(
       postsCol, 
-      where("isPrivate", "==", false)
+      where("isPrivate", "==", false),
+      orderBy("timestamp", "desc")
     );
 
     const unsubscribe = onSnapshot(q, async (querySnapshot) => {
@@ -77,7 +77,6 @@ export default function TodayPage() {
         setPosts(uniquePosts);
       } else {
         // For guests, just show sorted public posts.
-        publicPosts.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
         setPosts(publicPosts);
       }
 
@@ -102,7 +101,7 @@ export default function TodayPage() {
     return () => unsubscribe();
   }, [user, authLoading, toast]);
 
-    const handleReaction = async (postId: string, authorId: string, reaction: 'like' | 'laugh') => {
+    const handleReaction = useCallback(async (postId: string, authorId: string, reaction: 'like' | 'laugh') => {
         if (!user || !db) return;
         const postRef = doc(db, 'posts', postId);
         const reactorId = user.uid;
@@ -147,9 +146,9 @@ export default function TodayPage() {
                 duration: 10000,
             });
         }
-    };
+    }, [user, toast]);
     
-    const handleCommentPost = async (postId: string, commentText: string) => {
+    const handleCommentPost = useCallback(async (postId: string, commentText: string) => {
         if (!user || !db || !commentText.trim()) return;
 
         const postRef = doc(db, 'posts', postId);
@@ -184,9 +183,9 @@ export default function TodayPage() {
             // Re-throw the error to be caught by the calling component if needed
             throw error;
         }
-    };
+    }, [user, toast]);
 
-    const handleAddPost = async (
+    const handleAddPost = useCallback(async (
       content: string,
       contentBangla: string,
       file: File | null,
@@ -226,6 +225,7 @@ export default function TodayPage() {
             
             let originalAuthorId: string | undefined;
             let originalPostColor: string | undefined;
+
             if (postType === 'share' && sharedPostId) {
                 const sharedPostRef = doc(db, 'posts', sharedPostId);
                 const sharedPostDoc = await transaction.get(sharedPostRef);
@@ -319,9 +319,9 @@ export default function TodayPage() {
           
           throw error;
       }
-    };
+    }, [user, toast]);
 
-    const handleDeletePost = async (postId: string, mediaUrl?: string) => {
+    const handleDeletePost = useCallback(async (postId: string, mediaUrl?: string) => {
       if (!db || !storage || !user) return;
       try {
         await runTransaction(db, async (transaction) => {
@@ -351,9 +351,9 @@ export default function TodayPage() {
           console.error("Error deleting post:", error);
           toast({ variant: 'destructive', title: 'Deletion Failed', description: error.message || 'Could not delete post.' });
       }
-    };
+    }, [user, toast]);
     
-    const handleMakePostPrivate = async (post: Post, offenceCredit: number) => {
+    const handleMakePostPrivate = useCallback(async (post: Post, offenceCredit: number) => {
       if (!db || !storage || !user) {
         toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
         return;
@@ -419,9 +419,9 @@ export default function TodayPage() {
         console.error("Error during offence action:", error);
         toast({ variant: 'destructive', title: 'Action Failed', description: error.message || 'An unexpected error occurred.' });
       }
-    };
+    }, [user, toast]);
     
-    const handleMakePostPublic = async (postId: string, newDefenceCredit: number) => {
+    const handleMakePostPublic = useCallback(async (postId: string, newDefenceCredit: number) => {
         if (!db || !user) {
             toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
             return;
@@ -479,7 +479,7 @@ export default function TodayPage() {
             console.error("Error making post public:", error);
             toast({ variant: 'destructive', title: 'Action Failed', description: error.message || 'An unexpected error occurred.' });
         }
-    };
+    }, [user, toast]);
 
 
   

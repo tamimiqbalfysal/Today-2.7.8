@@ -1,5 +1,4 @@
 
-
 "use client"
 
 import type { Post, User, Comment } from "@/lib/types";
@@ -20,7 +19,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Textarea } from "../ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -53,7 +52,7 @@ interface PostCardProps {
   ) => Promise<void>;
 }
 
-function CommentItem({ comment }: { comment: Comment }) {
+const CommentItem = memo(function CommentItem({ comment }: { comment: Comment }) {
     const authorInitial = comment.authorName ? comment.authorName.charAt(0) : 'U';
     const timestamp = comment.timestamp?.toDate ? comment.timestamp.toDate() : new Date();
 
@@ -72,9 +71,9 @@ function CommentItem({ comment }: { comment: Comment }) {
             </div>
         </div>
     );
-}
+});
 
-function OriginalPostCard({ post }: { post: Post }) {
+const OriginalPostCard = memo(function OriginalPostCard({ post }: { post: Post }) {
     const timestamp = post.timestamp?.toDate ? post.timestamp.toDate() : new Date();
     const authorInitial = post.authorName ? post.authorName.charAt(0) : 'U';
     
@@ -108,10 +107,10 @@ function OriginalPostCard({ post }: { post: Post }) {
             )}
         </div>
     );
-}
+});
 
 
-function PostCard({ post: initialPost, currentUser, onDelete, onMakePostPrivate, onMakePostPublic, onReact, onComment, onSharePost }: PostCardProps) {
+const PostCard = memo(function PostCard({ post: initialPost, currentUser, onDelete, onMakePostPrivate, onMakePostPublic, onReact, onComment, onSharePost }: PostCardProps) {
     const [post, setPost] = useState(initialPost);
     const [author, setAuthor] = useState<User | null>(null);
     const [isLoadingAuthor, setIsLoadingAuthor] = useState(true);
@@ -189,16 +188,16 @@ function PostCard({ post: initialPost, currentUser, onDelete, onMakePostPrivate,
 
     const currentUserInitial = currentUser?.name ? currentUser.name.charAt(0) : "U";
 
-    const handleReactionClick = (reaction: 'like' | 'laugh') => {
+    const handleReactionClick = useCallback((reaction: 'like' | 'laugh') => {
         if (!currentUser || !onReact) return;
         onReact(post.id, post.authorId, reaction);
-    };
+    }, [currentUser, onReact, post.id, post.authorId]);
     
-    const handleCommentClick = () => {
+    const handleCommentClick = useCallback(() => {
         setIsExpanded(prev => !prev);
-    };
+    }, []);
 
-    const handleCommentPost = async () => {
+    const handleCommentPost = useCallback(async () => {
         if (!onComment || !commentText.trim()) return;
         setIsCommenting(true);
         try {
@@ -209,7 +208,7 @@ function PostCard({ post: initialPost, currentUser, onDelete, onMakePostPrivate,
         } finally {
             setIsCommenting(false);
         }
-    };
+    }, [onComment, post.id, commentText]);
     
     const profileLink = isAuthor ? '/profile' : `/u/${post.authorId}`;
 
@@ -234,10 +233,48 @@ function PostCard({ post: initialPost, currentUser, onDelete, onMakePostPrivate,
         }
     };
 
-    const hasEnglishContent = post.content || post.mediaURL;
+    const hasEnglishContent = post.content || post.mediaURL || (post.type === 'share' && post.sharedPost);
     const hasBanglaContent = post.contentBangla || post.mediaURLBangla;
-    const hasMultipleSlides = (hasEnglishContent || post.type === 'share') && (hasBanglaContent || post.sharedPost);
+    
+    const slides = useMemo(() => {
+        const s = [];
+        if (hasEnglishContent) {
+            s.push(
+                <CarouselItem key="english-slide">
+                    <div className="space-y-4">
+                        {post.content && <p className="font-sans text-card-foreground text-lg whitespace-pre-wrap">{post.content}</p>}
+                        {post.mediaURL && (
+                            <div className="relative w-full rounded-lg overflow-hidden aspect-video border">
+                                {post.mediaType === 'image' && <Image src={post.mediaURL} alt="Post media" layout="fill" objectFit="cover" />}
+                                {post.mediaType === 'video' && <video src={post.mediaURL} controls className="w-full h-full object-cover bg-black" />}
+                            </div>
+                        )}
+                        {post.type === 'share' && post.sharedPost && (
+                            <OriginalPostCard post={post.sharedPost} />
+                        )}
+                    </div>
+                </CarouselItem>
+            );
+        }
+        if (hasBanglaContent) {
+            s.push(
+                <CarouselItem key="bangla-slide">
+                <div className="space-y-4">
+                    {post.contentBangla && <p className="font-sans text-card-foreground text-lg whitespace-pre-wrap">{post.contentBangla}</p>}
+                    {post.mediaURLBangla && (
+                        <div className="relative w-full rounded-lg overflow-hidden aspect-video border">
+                            {post.mediaTypeBangla === 'image' && <Image src={post.mediaURLBangla} alt="Post media (Bangla)" layout="fill" objectFit="cover" />}
+                            {post.mediaTypeBangla === 'video' && <video src={post.mediaURLBangla} controls className="w-full h-full object-cover bg-black" />}
+                        </div>
+                    )}
+                </div>
+                </CarouselItem>
+            );
+        }
+        return s;
+    }, [post, hasEnglishContent, hasBanglaContent]);
 
+    const hasMultipleSlides = slides.length > 1;
 
     const defenceCreditValue = post.defenceCredit || 0;
     const lastOffenceCreditValue = post.offenceCredit || 0;
@@ -251,23 +288,23 @@ function PostCard({ post: initialPost, currentUser, onDelete, onMakePostPrivate,
     const hasLiked = (post.likes || []).includes(currentUser?.uid || '');
     const hasLaughed = (post.laughs || []).includes(currentUser?.uid || '');
 
-    const handleDeleteClick = () => {
+    const handleDeleteClick = useCallback(() => {
         if (onDelete) {
             onDelete(post.id, post.mediaURL);
         }
-    };
+    }, [onDelete, post.id, post.mediaURL]);
 
-    const handleMakePrivateClick = () => {
+    const handleMakePrivateClick = useCallback(() => {
         if (onMakePostPrivate) {
             onMakePostPrivate(post, offenceCreditValue);
         }
-    };
+    }, [onMakePostPrivate, post, offenceCreditValue]);
     
-    const handleMakePublicClick = () => {
+    const handleMakePublicClick = useCallback(() => {
         if (isAuthor && onMakePostPublic && newDefenceCreditValue > 0) {
             onMakePostPublic(post.id, newDefenceCreditValue);
         }
-    };
+    }, [isAuthor, onMakePostPublic, post.id, newDefenceCreditValue]);
 
 
     const makePublicDialog = (
@@ -361,45 +398,20 @@ function PostCard({ post: initialPost, currentUser, onDelete, onMakePostPrivate,
                     </p>
                 </div>
                  
-                {(hasEnglishContent || hasBanglaContent || post.sharedPost) && (
+                {slides.length > 0 && (
                     <div className="mb-4">
                         <Carousel setApi={setCarouselApi} className="w-full">
                             <CarouselContent>
-                                {(hasEnglishContent || post.type === 'share') && (
-                                    <CarouselItem>
-                                        <div className="space-y-4">
-                                            {post.content && <p className="font-sans text-card-foreground text-lg whitespace-pre-wrap">{post.content}</p>}
-                                            {post.mediaURL && (
-                                                <div className="relative w-full rounded-lg overflow-hidden aspect-video border">
-                                                    {post.mediaType === 'image' && <Image src={post.mediaURL} alt="Post media" layout="fill" objectFit="cover" />}
-                                                    {post.mediaType === 'video' && <video src={post.mediaURL} controls className="w-full h-full object-cover bg-black" />}
-                                                </div>
-                                            )}
-                                             {post.type === 'share' && post.sharedPost && (
-                                                <OriginalPostCard post={post.sharedPost} />
-                                            )}
-                                        </div>
-                                    </CarouselItem>
-                                )}
-                                {hasBanglaContent && (
-                                    <CarouselItem>
-                                        <div className="space-y-4">
-                                            {post.contentBangla && <p className="font-sans text-card-foreground text-lg whitespace-pre-wrap">{post.contentBangla}</p>}
-                                            {post.mediaURLBangla && (
-                                                <div className="relative w-full rounded-lg overflow-hidden aspect-video border">
-                                                    {post.mediaTypeBangla === 'image' && <Image src={post.mediaURLBangla} alt="Post media (Bangla)" layout="fill" objectFit="cover" />}
-                                                    {post.mediaTypeBangla === 'video' && <video src={post.mediaURLBangla} controls className="w-full h-full object-cover bg-black" />}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </CarouselItem>
-                                )}
+                                {slides}
                             </CarouselContent>
                         </Carousel>
                         {hasMultipleSlides && (
                             <div className="flex justify-center items-center mt-2 space-x-1">
-                                <Dot className={cn("h-6 w-6 cursor-pointer", currentSlide === 0 ? "text-primary" : "text-muted-foreground")} onClick={() => carouselApi?.scrollTo(0)} />
-                                <Dot className={cn("h-6 w-6 cursor-pointer", currentSlide === 1 ? "text-primary" : "text-muted-foreground")} onClick={() => carouselApi?.scrollTo(1)} />
+                                {[...Array(slides.length)].map((_, i) => (
+                                    <Button key={i} variant="ghost" size="icon" className={cn("h-6 w-6 rounded-full", currentSlide === i ? "bg-accent" : "")} onClick={() => carouselApi?.scrollTo(i)}>
+                                      <Dot className={cn("h-6 w-6", currentSlide === i ? "text-primary" : "text-muted-foreground")} />
+                                    </Button>
+                                ))}
                             </div>
                         )}
                     </div>
@@ -581,7 +593,7 @@ function PostCard({ post: initialPost, currentUser, onDelete, onMakePostPrivate,
             />
         </>
     );
-}
+});
 
 
 interface PostFeedProps {
