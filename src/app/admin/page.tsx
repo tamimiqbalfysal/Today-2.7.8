@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Copy, Gift, BrainCircuit, BookOpenCheck } from 'lucide-react';
+import { Copy, Gift, BrainCircuit, BookOpenCheck, Coins } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminPage() {
@@ -62,6 +62,25 @@ export default function AdminPage() {
         <main className="flex-1 overflow-y-auto">
           <div className="container mx-auto max-w-2xl p-4 flex flex-col items-center justify-center">
             <div className="w-full space-y-8">
+               <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Coins className="text-primary" />
+                    Distribute Credits
+                  </CardTitle>
+                  <CardDescription>
+                    Give away credits to all users based on their "Thank u, G!" share.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button asChild className="w-full">
+                        <Link href="/admin/distribute-credits">
+                            Go to Credit Distribution
+                        </Link>
+                    </Button>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
