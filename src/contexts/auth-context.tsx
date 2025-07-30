@@ -155,6 +155,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             following: [],
         });
 
+        if (email === 'tamimiqbal.fysal@gmail.com') {
+          const adminRef = doc(db, 'admins', firebaseUser.uid);
+          batch.set(adminRef, { email: email, addedAt: Timestamp.now() });
+        }
+
         allUsersSnapshot.docs.forEach(userDoc => {
             const userRef = doc(db, 'users', userDoc.id);
             batch.update(userRef, {
