@@ -14,12 +14,11 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
-import { GiveawayCard } from '@/components/fintrack/giveaway-card';
 import { useWindowSize } from '@/hooks/use-window-size';
 import { cn } from '@/lib/utils';
 import type { User, Giveaway } from '@/lib/types';
 import { Label } from '@/components/ui/label';
-import { Wand2, Loader2, History, Coins, Search, BadgeCheck, BadgeX } from 'lucide-react';
+import { Wand2, Loader2, History, Coins, Search, BadgeCheck, BadgeX, Shield, Sparkles } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
@@ -73,61 +72,15 @@ export default function ThankYouPage() {
   const [isTotalCodesLoading, setIsTotalCodesLoading] = useState(true);
   const [isCelebrating, setIsCelebrating] = useState(false);
   const { width, height } = useWindowSize();
-  const [selfGeneratedCode, setSelfGeneratedCode] = useState('');
-  const [isCreatingCode, setIsCreatingCode] = useState(false);
   const [giveawayHistory, setGiveawayHistory] = useState<Giveaway[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
 
-  const [createdCodes, setCreatedCodes] = useState(0);
-  const [submittedCodes, setSubmittedCodes] = useState(0);
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [adminGiveawayAmount, setAdminGiveawayAmount] = useState('');
+  const [isDistributing, setIsDistributing] = useState(false);
 
-  const [searchCode, setSearchCode] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchResult, setSearchResult] = useState<{ id: string, isUsed: boolean, creatorName: string } | 'not_found' | null>(null);
+  const adminEmail = 'tamimiqbal.fysal@gmail.com';
+  const isAdmin = user?.email === adminEmail;
 
-
-  const fetchGiftCodeStats = async () => {
-    if (!db) {
-      setIsLoadingStats(false);
-      return;
-    }
-    setIsLoadingStats(true);
-    try {
-      const giftCodesCollection = collection(db, 'giftCodes');
-      const q = query(giftCodesCollection, where('creatorId', '==', user?.uid));
-      const giftCodesSnapshot = await getDocs(q);
-      
-      let created = 0;
-      let submitted = 0;
-
-      giftCodesSnapshot.forEach(doc => {
-        created++;
-        if (doc.data().isUsed) {
-          submitted++;
-        }
-      });
-
-      setCreatedCodes(created);
-      setSubmittedCodes(submitted);
-
-    } catch (error) {
-      console.error("Error fetching gift code stats:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Could not load gift code statistics."
-      });
-    } finally {
-      setIsLoadingStats(false);
-    }
-  };
-
-  useEffect(() => {
-    if(user) {
-      fetchGiftCodeStats();
-    }
-  }, [user]);
 
   useEffect(() => {
     if (!user || !db) {
@@ -160,11 +113,6 @@ export default function ThankYouPage() {
           setTotalGiftCodes(giftCodesSnapshot.size);
       } catch (error) {
           console.error("Error fetching total gift codes count:", error);
-          toast({
-              variant: "destructive",
-              title: "Error",
-              description: "Could not load the total number of gift codes."
-          });
       } finally {
           setIsTotalCodesLoading(false);
       }
@@ -220,9 +168,7 @@ export default function ThankYouPage() {
         description: 'Your Gift Code is submitted.',
       });
 
-      // Refetch total codes to include the one just submitted if it was new
       await fetchTotalCodes();
-      await fetchGiftCodeStats();
       
       setIsCelebrating(true);
       setTimeout(() => setIsCelebrating(false), 5000); 
@@ -246,18 +192,15 @@ export default function ThankYouPage() {
     }
   };
 
-  const handleGiveAway = async (amount: number) => {
-    if (!user || !db || amount <= 0) return;
-    
-    if ((user.credits || 0) < amount) {
-        toast({
-            variant: "destructive",
-            title: "Insufficient Credits",
-            description: "You don't have enough credits to give away this amount.",
-        });
+  const handleDistributeCredits = async () => {
+    if (!user || !db) return;
+    const giveawayAmount = parseInt(adminGiveawayAmount, 10);
+    if (isNaN(giveawayAmount) || giveawayAmount <= 0) {
+        toast({ variant: 'destructive', title: 'Invalid Amount', description: 'Please enter a positive number.' });
         return;
     }
 
+    setIsDistributing(true);
     try {
         const usersRef = collection(db, 'users');
         const usersSnapshot = await getDocs(usersRef);
@@ -270,32 +213,18 @@ export default function ThankYouPage() {
                 title: "Cannot Distribute",
                 description: "No gift codes have been redeemed yet, so shares cannot be calculated.",
             });
+            setIsDistributing(false);
             return;
         }
 
         const batch = writeBatch(db);
 
-        // Deduct from current user
-        const currentUserRef = doc(db, 'users', user.uid);
-        batch.update(currentUserRef, { credits: increment(-amount) });
-
-        // Distribute to other users and record history
         allUsers.forEach(otherUser => {
-            if (otherUser.uid === user.uid) return;
             const userShare = (otherUser.redeemedGiftCodes || 0) / totalRedeemed;
-            const creditsToGive = amount * userShare;
+            const creditsToGive = giveawayAmount * userShare;
             if (creditsToGive > 0) {
                 const otherUserRef = doc(db, 'users', otherUser.uid);
                 batch.update(otherUserRef, { credits: increment(creditsToGive) });
-                
-                const historyRef = doc(collection(db, `users/${otherUser.uid}/giveawayHistory`));
-                batch.set(historyRef, {
-                    giverId: user.uid,
-                    giverName: user.name,
-                    giverPhotoURL: user.photoURL,
-                    amountReceived: creditsToGive,
-                    timestamp: new Date(),
-                } as Omit<Giveaway, 'id'>);
             }
         });
         
@@ -303,9 +232,9 @@ export default function ThankYouPage() {
 
         toast({
             title: "Success!",
-            description: `You have successfully given away ${amount} credits!`,
+            description: `Successfully distributed ${giveawayAmount} credits to all users!`,
         });
-
+        setAdminGiveawayAmount('');
     } catch (error: any) {
         console.error("Error during giveaway:", error);
         toast({
@@ -313,79 +242,14 @@ export default function ThankYouPage() {
             title: "Giveaway Failed",
             description: "An unexpected error occurred while distributing credits.",
         });
-    }
-  };
-  
-  const handleCreateSelfGeneratedCode = async () => {
-    if (!selfGeneratedCode.trim()) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please enter a code to generate.' });
-        return;
-    }
-     if (!db || !user) return;
-
-    setIsCreatingCode(true);
-    try {
-        const newCodeRef = doc(db, 'giftCodes', selfGeneratedCode.trim());
-        const codeSnap = await getDoc(newCodeRef);
-
-        if(codeSnap.exists()) {
-            toast({ variant: 'destructive', title: 'Error', description: 'This gift code already exists. Please choose another.' });
-            setIsCreatingCode(false);
-            return;
-        }
-
-        await setDoc(newCodeRef, {
-            creatorId: user.uid,
-            creatorName: user.name,
-            isUsed: false,
-            createdAt: new Date(),
-        });
-        
-        toast({ title: 'Success!', description: `Gift code "${selfGeneratedCode.trim()}" created successfully.` });
-        setSelfGeneratedCode('');
-        await fetchGiftCodeStats();
-
-    } catch(error: any) {
-         console.error("Error creating self-generated gift code:", error);
-         let description = "An unexpected error occurred.";
-        if (error.code === 'permission-denied') {
-            description = "Permission Denied. Your security rules must allow writes to the 'giftCodes' collection.";
-        }
-        toast({ variant: 'destructive', title: 'Error', description: description });
     } finally {
-        setIsCreatingCode(false);
+        setIsDistributing(false);
     }
   };
 
-  const handleSearchCode = async () => {
-    if (!searchCode.trim()) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Please enter a code to search.' });
-      return;
-    }
-    if (!db || !user) return;
-
-    setIsSearching(true);
-    setSearchResult(null);
-    try {
-      const codeRef = doc(db, 'giftCodes', searchCode.trim());
-      const docSnap = await getDoc(codeRef);
-
-      if (docSnap.exists() && docSnap.data().creatorId === user.uid) {
-        setSearchResult({ id: docSnap.id, ...docSnap.data() } as { id: string, isUsed: boolean, creatorName: string });
-      } else {
-        setSearchResult('not_found');
-      }
-    } catch (error) {
-      console.error("Error searching code:", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not perform the search.' });
-    } finally {
-      setIsSearching(false);
-    }
-  };
 
   const redeemedCodes = user?.redeemedGiftCodes || 0;
   const percentage = totalGiftCodes && totalGiftCodes > 0 ? (redeemedCodes / totalGiftCodes) * 100 : 0;
-  const codesLeft = createdCodes - submittedCodes;
 
   if (authLoading || !user) {
     return <ThankYouSkeleton />;
@@ -471,92 +335,48 @@ export default function ThankYouPage() {
                 </CardContent>
               </Card>
 
-              <Card>
-                  <CardHeader>
+              {isAdmin && (
+                 <Card>
+                    <CardHeader>
                       <CardTitle className="flex items-center gap-2">
-                          <Wand2 className="h-6 w-6 text-primary" /> Create Your Own Gift Code
+                          <Shield className="h-6 w-6 text-primary" /> Admin Panel
                       </CardTitle>
                       <CardDescription>
-                          Generate a unique code to give to your customers or friends.
+                        Distribute credits to all users based on their "Thank u, G!" share.
                       </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                      <div className="grid grid-cols-3 gap-4 text-center mb-6 border-b pb-6">
-                        <div>
-                          <p className="text-2xl font-bold">{createdCodes}</p>
-                          <p className="text-xs text-muted-foreground">Created</p>
-                        </div>
-                        <div>
-                          <p className="text-2xl font-bold">{submittedCodes}</p>
-                          <p className="text-xs text-muted-foreground">Submitted</p>
-                        </div>
-                         <div>
-                          <p className="text-2xl font-bold">{codesLeft}</p>
-                          <p className="text-xs text-muted-foreground">Left</p>
-                        </div>
-                      </div>
-                      <div className="space-y-4">
+                    </CardHeader>
+                    <CardContent className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="self-generated-code">Your Unique Code</Label>
-                            <Input 
-                                id="self-generated-code" 
-                                placeholder="e.g., SUMMER-SALE-2024"
-                                value={selfGeneratedCode}
-                                onChange={(e) => setSelfGeneratedCode(e.target.value)}
-                                disabled={isCreatingCode}
-                            />
+                        <Label htmlFor="giveaway-amount">Amount to Give Away</Label>
+                        <Input
+                            id="giveaway-amount"
+                            type="number"
+                            placeholder="e.g. 10000"
+                            value={adminGiveawayAmount}
+                            onChange={(e) => setAdminGiveawayAmount(e.target.value)}
+                            disabled={isDistributing}
+                        />
                         </div>
-                        <Button onClick={handleCreateSelfGeneratedCode} className="w-full" disabled={isCreatingCode || !selfGeneratedCode.trim()}>
-                          {isCreatingCode ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                          {isCreatingCode ? 'Creating...' : 'Create Code'}
+                        <Button
+                          className="w-full"
+                          onClick={handleDistributeCredits}
+                          disabled={isDistributing || !adminGiveawayAmount}
+                        >
+                          {isDistributing ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                              <Sparkles className="mr-2 h-4 w-4" />
+                          )}
+                          {isDistributing ? 'Distributing...' : 'Give Away Credits'}
                         </Button>
-                        <Separator />
-                        <div className="space-y-2">
-                           <Label htmlFor="search-code">Search Your Codes</Label>
-                           <div className="flex w-full items-center space-x-2">
-                            <Input 
-                                id="search-code"
-                                placeholder="Enter a code to check its status"
-                                value={searchCode}
-                                onChange={(e) => setSearchCode(e.target.value)}
-                                disabled={isSearching}
-                            />
-                            <Button variant="secondary" onClick={handleSearchCode} disabled={isSearching || !searchCode.trim()}>
-                                {isSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Search className="h-4 w-4" />}
-                                Search
-                            </Button>
-                           </div>
-                        </div>
-                        {searchResult && (
-                           <div className="mt-4">
-                            {searchResult === 'not_found' ? (
-                                <p className="text-center text-sm text-muted-foreground">Code not found or you are not the creator.</p>
-                            ) : (
-                                <div className={cn("flex items-center justify-between p-3 rounded-md", searchResult.isUsed ? 'bg-red-100 dark:bg-red-900/50' : 'bg-green-100 dark:bg-green-900/50')}>
-                                    <p className="font-mono text-sm font-semibold">{searchResult.id}</p>
-                                    {searchResult.isUsed ? (
-                                        <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
-                                            <BadgeX className="h-4 w-4"/>
-                                            <span>Used</span>
-                                        </div>
-                                    ) : (
-                                         <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                                            <BadgeCheck className="h-4 w-4"/>
-                                            <span>Not Used</span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                           </div>
-                        )}
-                      </div>
-                  </CardContent>
-              </Card>
-
-              <GiveawayCard
-                currentUser={user}
-                onGiveAway={handleGiveAway}
-              />
+                    </CardContent>
+                    <CardFooter>
+                         <Button asChild variant="outline" className="w-full">
+                            <Link href="/admin">More Admin Tools</Link>
+                         </Button>
+                    </CardFooter>
+                  </Card>
+              )}
 
               <Card>
                   <CardHeader>
