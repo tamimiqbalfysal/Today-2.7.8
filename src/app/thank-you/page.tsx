@@ -72,6 +72,7 @@ export default function ThankYouPage() {
   const [giveawayHistory, setGiveawayHistory] = useState<Giveaway[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
 
+
   useEffect(() => {
     if (!user || !db) {
         setIsHistoryLoading(false);
@@ -350,26 +351,6 @@ export default function ThankYouPage() {
                   </a>
                 </CardContent>
               </Card>
-
-              {isAdmin && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                           <Shield className="h-6 w-6 text-primary" /> Admin Panel
-                        </CardTitle>
-                        <CardDescription>
-                            Access administrative features.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Button asChild className="w-full">
-                            <Link href="/admin">
-                                Go to Admin Panel
-                            </Link>
-                        </Button>
-                    </CardContent>
-                </Card>
-              )}
 
             </div>
           </div>
