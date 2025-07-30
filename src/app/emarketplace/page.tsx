@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Star, ShoppingCart, Search, Filter, Info } from 'lucide-react';
+import { Star, ShoppingCart, Search, Filter, Info, Coins } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -54,14 +54,21 @@ function ProductCard({ product }: { product: Product }) {
     }
   }, [product.currency]);
 
-  const productLink = product.category === 'Ogrim' ? `/ogrim/${product.id}` : `/emarketplace/${product.id}`;
+  let productLink = `/emarketplace/${product.id}`;
+  if(product.category === 'Ogrim') {
+    productLink = `/ogrim/${product.id}`
+  } else if (product.category === 'Credit Market') {
+      productLink = '#'; // Or a dedicated page for credit purchases
+  }
+
+  const isCreditSale = product.category === 'Credit Market';
 
   return (
     <Card className="overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex flex-col">
       <CardContent className="p-0">
         <Link href={productLink} className="block">
-          <div className="relative aspect-square bg-black">
-            {displayMedia.url && (
+          <div className="relative aspect-square bg-secondary">
+            {displayMedia.url ? (
               displayMedia.type === 'image' ? (
                   <Image
                   src={displayMedia.url}
@@ -79,6 +86,10 @@ function ProductCard({ product }: { product: Product }) {
                       playsInline
                   />
               )
+            ) : (
+                <div className="flex items-center justify-center h-full bg-gradient-to-br from-yellow-300 to-orange-400">
+                    <Coins className="h-16 w-16 text-white/80" />
+                </div>
             )}
           </div>
         </Link>
@@ -110,7 +121,7 @@ function ProductCard({ product }: { product: Product }) {
         <div className="flex flex-col gap-2">
             <Button asChild className="w-full">
                 <Link href={productLink}>
-                    <ShoppingCart className="mr-2 h-4 w-4" /> Pre-Order
+                    <ShoppingCart className="mr-2 h-4 w-4" /> {isCreditSale ? "Buy Credits" : "Pre-Order"}
                 </Link>
             </Button>
         </div>
@@ -133,7 +144,7 @@ export default function EMarketplacePage() {
     const fetchProducts = async () => {
         setIsLoadingProducts(true);
         try {
-            const categoriesToFetch = ['Tribe', 'Gift Garden', 'Video Bazaar', 'Ogrim'];
+            const categoriesToFetch = ['Tribe', 'Gift Garden', 'Video Bazaar', 'Ogrim', 'Credit Market'];
             
             const productPromises = categoriesToFetch.map(category => {
                 const q = query(collection(db, 'posts'), where('category', '==', category));
@@ -206,6 +217,8 @@ export default function EMarketplacePage() {
     );
   };
 
+  const allCategories = ['Tribe', 'Gift Garden', 'Video Bazaar', 'Ogrim', 'Credit Market'];
+
   return (
       <div className="flex flex-col h-screen bg-background">
         <main
@@ -268,30 +281,15 @@ export default function EMarketplacePage() {
                     <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Filter by Category</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuCheckboxItem
-                            checked={activeFilters.includes('Tribe')}
-                            onCheckedChange={() => handleFilterChange('Tribe')}
-                        >
-                            Tribe
-                        </DropdownMenuCheckboxItem>
-                         <DropdownMenuCheckboxItem
-                            checked={activeFilters.includes('Gift Garden')}
-                            onCheckedChange={() => handleFilterChange('Gift Garden')}
-                        >
-                            Gift Garden
-                        </DropdownMenuCheckboxItem>
-                        <DropdownMenuCheckboxItem
-                            checked={activeFilters.includes('Video Bazaar')}
-                            onCheckedChange={() => handleFilterChange('Video Bazaar')}
-                        >
-                            Video Bazaar
-                        </DropdownMenuCheckboxItem>
-                        <DropdownMenuCheckboxItem
-                            checked={activeFilters.includes('Ogrim')}
-                            onCheckedChange={() => handleFilterChange('Ogrim')}
-                        >
-                            Ogrim
-                        </DropdownMenuCheckboxItem>
+                        {allCategories.map(category => (
+                            <DropdownMenuCheckboxItem
+                                key={category}
+                                checked={activeFilters.includes(category)}
+                                onCheckedChange={() => handleFilterChange(category)}
+                            >
+                                {category}
+                            </DropdownMenuCheckboxItem>
+                        ))}
                     </DropdownMenuContent>
                 </DropdownMenu>
               </div>

@@ -66,6 +66,7 @@ export interface Post {
   imagePath?: string;
   sellerId?: string;
   sellerName?: string;
+  creditsToSell?: number;
 }
 
 export interface Review {

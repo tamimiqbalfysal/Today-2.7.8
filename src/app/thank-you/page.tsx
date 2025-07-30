@@ -3,7 +3,7 @@
 'use client';
 
 import Link from 'next/link';
-import { doc, getDoc, updateDoc, increment, collection, getDocs, deleteField, writeBatch, setDoc, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, increment, collection, getDocs, deleteField, writeBatch, setDoc, onSnapshot, query, orderBy, limit, where, addDoc, deleteDoc, runTransaction } from 'firebase/firestore';
 import { motion } from 'framer-motion';
 import Confetti from 'react-confetti';
 import { useState, useRef, useEffect } from 'react';
@@ -17,10 +17,12 @@ import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useWindowSize } from '@/hooks/use-window-size';
 import { cn } from '@/lib/utils';
-import type { User, Giveaway } from '@/lib/types';
-import { History, Coins, Shield } from 'lucide-react';
+import type { User, Giveaway, Post } from '@/lib/types';
+import { History, Coins, Shield, DollarSign, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Label } from '@/components/ui/label';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 
 function ThankYouSkeleton() {
@@ -63,16 +65,27 @@ function ThankYouSkeleton() {
 
 export default function ThankYouPage() {
   const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
+  
   const [code, setCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
-  const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
+  
   const [totalGiftCodes, setTotalGiftCodes] = useState<number | null>(null);
   const [isTotalCodesLoading, setIsTotalCodesLoading] = useState(true);
+  
   const [isCelebrating, setIsCelebrating] = useState(false);
   const { width, height } = useWindowSize();
+  
   const [giveawayHistory, setGiveawayHistory] = useState<Giveaway[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
+
+  const [creditSalePosts, setCreditSalePosts] = useState<Post[]>([]);
+  const [isCreditPostsLoading, setIsCreditPostsLoading] = useState(true);
+
+  const [sellAmount, setSellAmount] = useState('');
+  const [sellPrice, setSellPrice] = useState('');
+  const [isSelling, setIsSelling] = useState(false);
 
   const adminEmail = 'tamimiqbal.fysal@gmail.com';
   const isAdmin = user?.email === adminEmail;
@@ -81,20 +94,33 @@ export default function ThankYouPage() {
   useEffect(() => {
     if (!user || !db) {
         setIsHistoryLoading(false);
+        setIsCreditPostsLoading(false);
         return;
     }
-
+    
+    // Giveaway History listener
     const historyQuery = query(collection(db, `users/${user.uid}/giveawayHistory`), orderBy('timestamp', 'desc'), limit(10));
-    const unsubscribe = onSnapshot(historyQuery, (snapshot) => {
-        const history = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Giveaway));
-        setGiveawayHistory(history);
+    const unsubscribeHistory = onSnapshot(historyQuery, (snapshot) => {
+        setGiveawayHistory(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Giveaway)));
         setIsHistoryLoading(false);
     }, (error) => {
         console.error("Error fetching giveaway history: ", error);
         setIsHistoryLoading(false);
     });
 
-    return () => unsubscribe();
+    // Credit Sale Posts listener
+    const creditPostsQuery = query(collection(db, 'posts'), where('authorId', '==', user.uid), where('category', '==', 'Credit Market'));
+    const unsubscribeCreditPosts = onSnapshot(creditPostsQuery, (snapshot) => {
+        const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+        setCreditSalePosts(posts);
+        setIsCreditPostsLoading(false);
+    });
+
+
+    return () => {
+        unsubscribeHistory();
+        unsubscribeCreditPosts();
+    }
   }, [user]);
 
   const fetchTotalCodes = async () => {
@@ -109,11 +135,7 @@ export default function ThankYouPage() {
           setTotalGiftCodes(giftCodesSnapshot.size);
       } catch (error) {
           console.error("Error fetching total gift codes count:", error);
-          toast({
-              variant: "destructive",
-              title: "Error",
-              description: "Could not load the total number of gift codes."
-          });
+          toast({ variant: "destructive", title: "Error", description: "Could not load the total number of gift codes." });
       } finally {
           setIsTotalCodesLoading(false);
       }
@@ -125,51 +147,24 @@ export default function ThankYouPage() {
 
   const handleVerifyCode = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!code.trim()) {
-      toast({
-        variant: 'destructive',
-        title: 'Verification Failed',
-        description: 'Please enter a Gift Code.',
-      });
-      return;
-    }
-
-    if (!db || !user) {
-       toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'You must be logged in to redeem a code.',
-      });
-      return;
-    }
+    if (!code.trim() || !db || !user) return;
 
     setIsVerifying(true);
-
     try {
       const giftCodeRef = doc(db, 'giftCodes', code.trim());
       const docSnap = await getDoc(giftCodeRef);
 
       if (!docSnap.exists() || docSnap.data()?.isUsed === true) {
-        toast({
-          variant: 'destructive',
-          title: 'Verification Failed',
-          description: 'This gift code is invalid or has already been used.',
-        });
-        setIsVerifying(false);
-        return;
+        throw new Error('This gift code is invalid or has already been used.');
       }
       
-      await updateDoc(giftCodeRef, { isUsed: true });
-      
-      const userDocRef = doc(db, 'users', user.uid);
-      await updateDoc(userDocRef, { redeemedGiftCodes: increment(1) });
+      const batch = writeBatch(db);
+      batch.update(giftCodeRef, { isUsed: true });
+      batch.update(doc(db, 'users', user.uid), { redeemedGiftCodes: increment(1) });
+      await batch.commit();
 
-      toast({
-        title: 'Congratulations!',
-        description: 'Your Gift Code is submitted.',
-      });
+      toast({ title: 'Congratulations!', description: 'Your Gift Code is submitted.' });
 
-      // Refetch total codes to include the one just submitted if it was new
       await fetchTotalCodes();
       
       setIsCelebrating(true);
@@ -180,18 +175,80 @@ export default function ThankYouPage() {
 
     } catch (error: any) {
       console.error("Error verifying gift code:", error);
-      let description = "An unexpected error occurred.";
-      if (error.code === 'permission-denied') {
-        description = "Permission Denied. Please check your Firestore security rules to ensure authenticated users can read and update the 'giftCodes' and 'users' collections.";
-      }
-       toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: description,
-      });
+      toast({ variant: 'destructive', title: 'Verification Failed', description: error.message });
     } finally {
       setIsVerifying(false);
     }
+  };
+
+  const handleSellCredits = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const amount = parseInt(sellAmount, 10);
+    const price = parseFloat(sellPrice);
+    if (!user || !db || isNaN(amount) || amount <= 0 || isNaN(price) || price <= 0) {
+        toast({variant: 'destructive', title: 'Invalid Input', description: 'Please enter a valid amount and price.'});
+        return;
+    }
+    if ((user.credits || 0) < amount) {
+        toast({variant: 'destructive', title: 'Insufficient Credits', description: 'You do not have enough credits to sell.'});
+        return;
+    }
+
+    setIsSelling(true);
+    try {
+      await runTransaction(db, async (transaction) => {
+        const userRef = doc(db, 'users', user.uid);
+        const postRef = doc(collection(db, 'posts'));
+        
+        transaction.update(userRef, { credits: increment(-amount) });
+        
+        const newPost: Omit<Post, 'id' | 'timestamp'> = {
+          authorId: user.uid,
+          authorName: user.name,
+          authorPhotoURL: user.photoURL || '',
+          title: `${amount.toLocaleString()} Credits for Sale`,
+          content: `Get ${amount.toLocaleString()} credits for $${price.toFixed(2)}`,
+          category: 'Credit Market',
+          price: price,
+          creditsToSell: amount,
+          likes: [],
+          laughs: [],
+          comments: [],
+          type: 'original',
+          isPrivate: false,
+          currency: 'USD',
+        };
+        transaction.set(postRef, { ...newPost, timestamp: new Date() });
+      });
+      
+      toast({title: 'Success!', description: 'Your credits are now listed for sale.'});
+      setSellAmount('');
+      setSellPrice('');
+
+    } catch (error: any) {
+      console.error("Error selling credits:", error);
+      toast({variant: 'destructive', title: 'Error', description: 'Could not list your credits for sale.'});
+    } finally {
+      setIsSelling(false);
+    }
+  };
+
+  const handleDeleteCreditPost = async (post: Post) => {
+      if (!user || !db) return;
+      
+      try {
+        await runTransaction(db, async (transaction) => {
+            const userRef = doc(db, 'users', user.uid);
+            const postRef = doc(db, 'posts', post.id);
+
+            transaction.update(userRef, { credits: increment(post.creditsToSell || 0) });
+            transaction.delete(postRef);
+        });
+        toast({title: "Listing Removed", description: "Your credits have been returned to your account."})
+      } catch (error) {
+        console.error("Error deleting credit post:", error);
+        toast({variant: 'destructive', title: "Error", description: "Could not remove your listing."});
+      }
   };
 
 
@@ -283,6 +340,71 @@ export default function ThankYouPage() {
               </Card>
 
               <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center justify-center gap-2">
+                        Sell Your Credits
+                    </CardTitle>
+                    <CardDescription className="text-center">
+                        List your credits for sale on the eMarketplace. Your current balance: {(user.credits || 0).toLocaleString()}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <form onSubmit={handleSellCredits} className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="sell-amount">Credits to Sell</Label>
+                                <Input id="sell-amount" type="number" placeholder="e.g., 1000" value={sellAmount} onChange={(e) => setSellAmount(e.target.value)} disabled={isSelling} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="sell-price">Price (USD)</Label>
+                                <Input id="sell-price" type="number" placeholder="e.g., 10.00" value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} disabled={isSelling} />
+                            </div>
+                        </div>
+                        <Button type="submit" className="w-full" disabled={isSelling || !sellAmount || !sellPrice}>
+                            {isSelling ? 'Listing...' : 'Create Listing'}
+                        </Button>
+                    </form>
+                </CardContent>
+              </Card>
+
+              {creditSalePosts.length > 0 && (
+                <Card>
+                  <CardHeader>
+                      <CardTitle>Your Credit Listings</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                      {creditSalePosts.map(post => (
+                          <div key={post.id} className="flex items-center justify-between p-2 rounded-md bg-secondary">
+                              <p>{post.title} for ${post.price?.toFixed(2)}</p>
+                               <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10">
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                This will remove your listing from the marketplace and refund {post.creditsToSell?.toLocaleString()} credits to your account.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleDeleteCreditPost(post)} className="bg-destructive hover:bg-destructive/90">
+                                                Delete Listing
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                          </div>
+                      ))}
+                  </CardContent>
+                </Card>
+              )}
+
+
+              <Card>
                   <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                           <History className="h-6 w-6 text-primary" /> Giveaway History
@@ -356,6 +478,26 @@ export default function ThankYouPage() {
                   </a>
                 </CardContent>
               </Card>
+
+              {isAdmin && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                           <Shield className="h-6 w-6 text-primary" /> Admin Panel
+                        </CardTitle>
+                        <CardDescription>
+                            Access administrative features.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button asChild className="w-full">
+                            <Link href="/admin">
+                                Go to Admin Panel
+                            </Link>
+                        </Button>
+                    </CardContent>
+                </Card>
+              )}
 
             </div>
           </div>
