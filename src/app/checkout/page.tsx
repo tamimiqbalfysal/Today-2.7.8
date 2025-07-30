@@ -148,7 +148,7 @@ export default function CheckoutPage() {
                <Card>
                 <CardFooter className="pt-6">
                     <Button asChild variant="outline" className="w-full">
-                        <Link href="/attom">Continue Shopping</Link>
+                        <Link href="/emarketplace">Continue Shopping</Link>
                     </Button>
                 </CardFooter>
                </Card>
@@ -234,7 +234,7 @@ export default function CheckoutPage() {
                       Proceed to Payment
                     </Button>
                     <Button asChild variant="outline" className="w-full">
-                      <Link href="/attom">Shop More</Link>
+                      <Link href="/emarketplace">Shop More</Link>
                     </Button>
                   </CardFooter>
                 </Card>
@@ -246,7 +246,7 @@ export default function CheckoutPage() {
                 <h3 className="text-xl font-semibold">Your cart is empty</h3>
                 <p className="mt-2">Looks like you haven't added anything to your cart yet.</p>
                 <Button asChild className="mt-6">
-                    <Link href="/attom">Start Shopping</Link>
+                    <Link href="/emarketplace">Start Shopping</Link>
                 </Button>
             </div>
           )}

@@ -112,7 +112,7 @@ function ProductCard({ product, onDelete, currentUserId }: { product: Product, o
       <div className="p-4 pt-0 mt-auto">
         <div className="flex flex-col gap-2">
             <Button asChild variant="outline" className="w-full">
-              <Link href={`/attom/${product.id}`}>
+              <Link href={`/emarketplace/${product.id}`}>
                 <Info className="mr-2 h-4 w-4" /> Details
               </Link>
             </Button>
@@ -262,7 +262,7 @@ export default function VideoBazaarPage() {
               Sell your unique video creations to the community.
             </p>
             <Button asChild className="mt-8" variant="outline">
-              <Link href="/attom">Go Back to the Store</Link>
+              <Link href="/emarketplace">Go Back to the Store</Link>
             </Button>
           </div>
 
