@@ -29,8 +29,8 @@ export default function ManageAdminsPage() {
     if (!db) return;
     const adminsRef = collection(db, 'admins');
     const unsubscribe = onSnapshot(adminsRef, async (snapshot) => {
-        const adminEmails = snapshot.docs.map(doc => doc.id);
-        if (adminEmails.length === 0) {
+        const adminIds = snapshot.docs.map(doc => doc.id);
+        if (adminIds.length === 0) {
             setAdmins([]);
             setIsLoading(false);
             return;
@@ -38,7 +38,7 @@ export default function ManageAdminsPage() {
 
         try {
             const usersRef = collection(db, 'users');
-            const q = query(usersRef, where('email', 'in', adminEmails));
+            const q = query(usersRef, where('uid', 'in', adminIds));
             const userDocs = await getDocs(q);
             const adminUsers = userDocs.docs.map(doc => doc.data() as AppUser);
             setAdmins(adminUsers);
@@ -71,11 +71,12 @@ export default function ManageAdminsPage() {
             setIsSubmitting(false);
             return;
         }
-        
-        const adminRef = doc(db, 'admins', email.trim());
-        await setDoc(adminRef, { addedAt: new Date(), addedBy: currentUser?.email });
 
-        toast({ title: 'Admin Added', description: `${email} is now an administrator.` });
+        const userToAdd = userSnapshot.docs[0].data() as AppUser;
+        const adminRef = doc(db, 'admins', userToAdd.uid);
+        await setDoc(adminRef, { email: userToAdd.email, addedAt: new Date(), addedBy: currentUser?.uid });
+
+        toast({ title: 'Admin Added', description: `${userToAdd.name} is now an administrator.` });
         setEmail('');
     } catch (error) {
         console.error("Error adding admin: ", error);
@@ -85,15 +86,15 @@ export default function ManageAdminsPage() {
     }
   };
   
-  const handleRemoveAdmin = async (adminEmail: string) => {
-      if (!db) return;
-      if (adminEmail === 'tamimiqbal.fysal@gmail.com') {
+  const handleRemoveAdmin = async (adminToRemove: AppUser) => {
+      if (!db || !adminToRemove) return;
+      if (adminToRemove.email === 'tamimiqbal.fysal@gmail.com') {
           toast({ variant: 'destructive', title: 'Cannot Remove', description: 'The primary admin cannot be removed.'});
           return;
       }
       try {
-          await deleteDoc(doc(db, 'admins', adminEmail));
-          toast({ title: 'Admin Removed', description: `${adminEmail} is no longer an administrator.`});
+          await deleteDoc(doc(db, 'admins', adminToRemove.uid));
+          toast({ title: 'Admin Removed', description: `${adminToRemove.name} is no longer an administrator.`});
       } catch (error) {
           console.error("Error removing admin:", error);
           toast({ variant: 'destructive', title: 'Error', description: 'Could not remove admin.'});
@@ -161,7 +162,7 @@ export default function ManageAdminsPage() {
                                             </AlertDialogHeader>
                                             <AlertDialogFooter>
                                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleRemoveAdmin(admin.email)} className="bg-destructive hover:bg-destructive/90">
+                                                <AlertDialogAction onClick={() => handleRemoveAdmin(admin)} className="bg-destructive hover:bg-destructive/90">
                                                     Remove Admin
                                                 </AlertDialogAction>
                                             </AlertDialogFooter>
