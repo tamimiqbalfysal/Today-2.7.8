@@ -11,7 +11,6 @@ const PROTECTED_ROUTES = [
   '/add',
   '/admin',
   '/thank-you',
-  '/marketplace',
   '/tribe',
   '/office-express/create',
   '/roktim',

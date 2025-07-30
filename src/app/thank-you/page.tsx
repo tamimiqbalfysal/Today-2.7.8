@@ -317,20 +317,6 @@ export default function ThankYouPage() {
               />
               
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-center">eMarketplace 🎁</CardTitle>
-                  <CardDescription className="text-center">
-                    Increase or Decrease Your Share
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button asChild className="w-full">
-                    <Link href="/marketplace">Buy or Sell</Link>
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card>
                 <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6">
                   <a href="https://www.facebook.com/Tamim.Iqbal.Fysal" target="_blank" rel="noopener noreferrer" className="block hover:bg-accent/50 rounded-lg transition-colors">
                     <div className="flex flex-col items-center justify-center p-4 h-full border rounded-lg">
