@@ -109,45 +109,50 @@ export default function AdminPage() {
         getDocs(giftCodesRef)
       ]);
 
-      let totalShares = 0;
-      const userShares: { [uid: string]: number } = {};
-      
-      usersSnapshot.forEach(doc => {
-          const userData = doc.data();
-          const shares = userData.redeemedGiftCodes || 0;
-          userShares[doc.id] = shares;
-          totalShares += shares;
-      });
-
+      const totalShares = giftCodesSnapshot.size;
       if (totalShares === 0) {
-        toast({ variant: "destructive", title: "No Shares", description: "No users have submitted gift codes yet." });
+        toast({ variant: "destructive", title: "No Gift Codes", description: "There are no gift codes to base shares on." });
+        setIsDistributing(false);
         return;
       }
       
       const batch = writeBatch(db);
+      let usersToReceiveCredits = 0;
       
       usersSnapshot.forEach(userDoc => {
         const userId = userDoc.id;
-        const shares = userShares[userId];
-        if (shares > 0) {
-          const userRef = doc(db, 'users', userId);
-          const creditsToAdd = (shares / totalShares) * amount;
-          batch.update(userRef, { credits: increment(creditsToAdd) });
+        const userData = userDoc.data();
+        const shares = userData.redeemedGiftCodes || 0;
 
-          const giveawayHistoryRef = doc(collection(db, `users/${userId}/giveawayHistory`));
-          batch.set(giveawayHistoryRef, {
-            giverId: user.uid,
-            giverName: user.name,
-            giverPhotoURL: user.photoURL,
-            amountReceived: creditsToAdd,
-            timestamp: Timestamp.now()
-          });
+        if (shares > 0) {
+          usersToReceiveCredits++;
+          const userRef = doc(db, 'users', userId);
+          const creditsToAdd = Math.floor((shares / totalShares) * amount);
+          
+          if (creditsToAdd > 0) {
+            batch.update(userRef, { credits: increment(creditsToAdd) });
+
+            const giveawayHistoryRef = doc(collection(db, `users/${userId}/giveawayHistory`));
+            batch.set(giveawayHistoryRef, {
+              giverId: user.uid,
+              giverName: user.name,
+              giverPhotoURL: user.photoURL,
+              amountReceived: creditsToAdd,
+              timestamp: Timestamp.now()
+            });
+          }
         }
       });
       
+      if (usersToReceiveCredits === 0) {
+          toast({ variant: "destructive", title: "No Participants", description: "No users have submitted gift codes yet." });
+          setIsDistributing(false);
+          return;
+      }
+
       await batch.commit();
 
-      toast({ title: 'Success!', description: `${amount} credits have been distributed to users.` });
+      toast({ title: 'Success!', description: `${amount} credits have been distributed to ${usersToReceiveCredits} user(s).` });
       setGiveawayAmount('');
 
     } catch (error: any) {
@@ -157,6 +162,10 @@ export default function AdminPage() {
         setIsDistributing(false);
     }
   };
+
+  if (loading) {
+      return null;
+  }
 
   if (!isAdmin) {
     return (

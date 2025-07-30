@@ -60,7 +60,7 @@ function ThankYouSkeleton() {
 
 
 export default function ThankYouPage() {
-  const { user, loading: authLoading, isAdmin } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [code, setCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const { toast } = useToast();
@@ -71,7 +71,6 @@ export default function ThankYouPage() {
   const { width, height } = useWindowSize();
   const [giveawayHistory, setGiveawayHistory] = useState<Giveaway[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
-
 
   useEffect(() => {
     if (!user || !db) {
