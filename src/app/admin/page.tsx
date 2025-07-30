@@ -4,7 +4,6 @@
 
 import { useState } from 'react';
 import { collection, doc, setDoc, updateDoc, increment, writeBatch, getDocs, Timestamp, query, orderBy, limit, deleteDoc } from 'firebase/firestore';
-import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -16,6 +15,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogOverlay, AlertDialogPortal } from '@/components/ui/alert-dialog';
+import { generateGiftCode } from '@/ai/flows/generate-gift-code';
 
 export default function AdminPage() {
   const { user, isAdmin, loading } = useAuth();
@@ -35,15 +35,23 @@ export default function AdminPage() {
       return;
     }
 
-    const newCode = uuidv4();
-    const collectionName = type === 'gift' ? 'giftCodes' : 'thinkCodes';
     const setIsGenerating = type === 'gift' ? setIsGeneratingGift : setIsGeneratingThink;
     const setLastCode = type === 'gift' ? setLastGiftCode : setLastThinkCode;
 
     setIsGenerating(true);
     try {
+      let newCode = '';
+      if (type === 'gift') {
+        const result = await generateGiftCode();
+        newCode = result.code;
+      } else {
+        // Simple random number for think code for now
+        newCode = `think-${Math.floor(100000 + Math.random() * 900000)}`;
+      }
+      
+      const collectionName = type === 'gift' ? 'giftCodes' : 'thinkCodes';
       const codeRef = doc(collection(db, collectionName), newCode);
-      await setDoc(codeRef, { isUsed: false });
+      await setDoc(codeRef, { isUsed: false, createdAt: Timestamp.now() });
       setLastCode(newCode);
       toast({
         title: 'Code Generated!',
@@ -53,7 +61,7 @@ export default function AdminPage() {
       console.error(`Error generating ${type} code:`, error);
       let description = `An unexpected error occurred while generating the ${type} code.`;
       if (error.code === 'permission-denied') {
-        description = `Permission Denied. Please check your Firestore security rules to allow writes to the "${collectionName}" collection.`;
+        description = `Permission Denied. Please check your Firestore security rules to allow writes to the "${type === 'gift' ? 'giftCodes' : 'thinkCodes'}" collection.`;
       }
       toast({ variant: 'destructive', title: 'Generation Failed', description });
     } finally {
@@ -141,7 +149,9 @@ export default function AdminPage() {
               giverName: user.name,
               giverPhotoURL: user.photoURL,
               amountReceived: creditsToAdd,
-              timestamp: Timestamp.now()
+              timestamp: Timestamp.now(),
+              type: 'giveaway',
+              read: false,
             });
           }
         }
@@ -183,41 +193,11 @@ export default function AdminPage() {
         setIsDistributing(false);
     }
   };
-  
-   const handleInitializeAdmin = async () => {
-    if (!db || !user) return;
-    try {
-      const adminRef = doc(db, 'admins', user.uid);
-      await setDoc(adminRef, { email: user.email, addedAt: Timestamp.now() });
-      toast({ title: 'Success', description: 'You have been initialized as an administrator.' });
-    } catch (error) {
-      console.error("Error initializing admin:", error);
-      toast({ variant: 'destructive', title: 'Initialization Failed', description: 'Could not set you as admin.' });
-    }
-  };
 
   if (loading) {
       return null;
   }
-
-  if (user?.email === 'tamimiqbal.fysal@gmail.com' && !isAdmin) {
-    return (
-       <div className="flex flex-col h-screen">
-        <main className="flex-1 flex flex-col items-center justify-center">
-            <Card className="w-full max-w-md">
-                <CardHeader>
-                    <CardTitle>Admin Initialization</CardTitle>
-                    <CardDescription>Click the button below to become the first administrator for this application.</CardDescription>
-                </CardHeader>
-                <CardFooter>
-                    <Button onClick={handleInitializeAdmin} className="w-full">Initialize Admin</Button>
-                </CardFooter>
-            </Card>
-        </main>
-      </div>
-    )
-  }
-
+  
   if (!isAdmin) {
     return (
       <div className="flex flex-col h-screen">
