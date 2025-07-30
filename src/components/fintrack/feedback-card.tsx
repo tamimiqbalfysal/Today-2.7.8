@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -9,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Trash2 } from 'lucide-react';
+import Link from 'next/link';
 
 export interface FeedbackData {
   category: string;
@@ -117,9 +119,14 @@ export function FeedbackCard({ user, onSave, onDelete }: FeedbackCardProps) {
                 disabled={isSubmitting}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={!category || !accountName || !accountNumber || isSubmitting}>
-              {isSubmitting ? 'Saving...' : 'Send My Gift Here'}
-            </Button>
+            <div className="space-y-2">
+                <Button type="submit" className="w-full" disabled={!category || !accountName || !accountNumber || isSubmitting}>
+                {isSubmitting ? 'Saving...' : 'Send My Gift Here'}
+                </Button>
+                <Button asChild className="w-full" variant="outline">
+                    <Link href="/emarketplace">eMarketplace</Link>
+                </Button>
+            </div>
           </form>
         </CardContent>
       </Card>
