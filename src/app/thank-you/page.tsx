@@ -19,9 +19,10 @@ import { useWindowSize } from '@/hooks/use-window-size';
 import { cn } from '@/lib/utils';
 import type { User, Giveaway } from '@/lib/types';
 import { Label } from '@/components/ui/label';
-import { Wand2, Loader2, History, Coins } from 'lucide-react';
+import { Wand2, Loader2, History, Coins, Search, BadgeCheck, BadgeX } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
 
 
 function ThankYouSkeleton() {
@@ -80,6 +81,11 @@ export default function ThankYouPage() {
   const [createdCodes, setCreatedCodes] = useState(0);
   const [submittedCodes, setSubmittedCodes] = useState(0);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+  const [searchCode, setSearchCode] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResult, setSearchResult] = useState<{ id: string, isUsed: boolean, creatorName: string } | 'not_found' | null>(null);
+
 
   const fetchGiftCodeStats = async () => {
     if (!db) {
@@ -349,8 +355,33 @@ export default function ThankYouPage() {
     } finally {
         setIsCreatingCode(false);
     }
-  }
+  };
 
+  const handleSearchCode = async () => {
+    if (!searchCode.trim()) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please enter a code to search.' });
+      return;
+    }
+    if (!db || !user) return;
+
+    setIsSearching(true);
+    setSearchResult(null);
+    try {
+      const codeRef = doc(db, 'giftCodes', searchCode.trim());
+      const docSnap = await getDoc(codeRef);
+
+      if (docSnap.exists() && docSnap.data().creatorId === user.uid) {
+        setSearchResult({ id: docSnap.id, ...docSnap.data() } as { id: string, isUsed: boolean, creatorName: string });
+      } else {
+        setSearchResult('not_found');
+      }
+    } catch (error) {
+      console.error("Error searching code:", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not perform the search.' });
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   const redeemedCodes = user?.redeemedGiftCodes || 0;
   const percentage = totalGiftCodes && totalGiftCodes > 0 ? (redeemedCodes / totalGiftCodes) * 100 : 0;
@@ -464,20 +495,61 @@ export default function ThankYouPage() {
                           <p className="text-xs text-muted-foreground">Left</p>
                         </div>
                       </div>
-                      <div className="space-y-2">
-                          <Label htmlFor="self-generated-code">Your Unique Code</Label>
-                          <Input 
-                              id="self-generated-code" 
-                              placeholder="e.g., SUMMER-SALE-2024"
-                              value={selfGeneratedCode}
-                              onChange={(e) => setSelfGeneratedCode(e.target.value)}
-                              disabled={isCreatingCode}
-                          />
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="self-generated-code">Your Unique Code</Label>
+                            <Input 
+                                id="self-generated-code" 
+                                placeholder="e.g., SUMMER-SALE-2024"
+                                value={selfGeneratedCode}
+                                onChange={(e) => setSelfGeneratedCode(e.target.value)}
+                                disabled={isCreatingCode}
+                            />
+                        </div>
+                        <Button onClick={handleCreateSelfGeneratedCode} className="w-full" disabled={isCreatingCode || !selfGeneratedCode.trim()}>
+                          {isCreatingCode ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                          {isCreatingCode ? 'Creating...' : 'Create Code'}
+                        </Button>
+                        <Separator />
+                        <div className="space-y-2">
+                           <Label htmlFor="search-code">Search Your Codes</Label>
+                           <div className="flex w-full items-center space-x-2">
+                            <Input 
+                                id="search-code"
+                                placeholder="Enter a code to check its status"
+                                value={searchCode}
+                                onChange={(e) => setSearchCode(e.target.value)}
+                                disabled={isSearching}
+                            />
+                            <Button variant="secondary" onClick={handleSearchCode} disabled={isSearching || !searchCode.trim()}>
+                                {isSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Search className="h-4 w-4" />}
+                                Search
+                            </Button>
+                           </div>
+                        </div>
+                        {searchResult && (
+                           <div className="mt-4">
+                            {searchResult === 'not_found' ? (
+                                <p className="text-center text-sm text-muted-foreground">Code not found or you are not the creator.</p>
+                            ) : (
+                                <div className={cn("flex items-center justify-between p-3 rounded-md", searchResult.isUsed ? 'bg-red-100 dark:bg-red-900/50' : 'bg-green-100 dark:bg-green-900/50')}>
+                                    <p className="font-mono text-sm font-semibold">{searchResult.id}</p>
+                                    {searchResult.isUsed ? (
+                                        <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+                                            <BadgeX className="h-4 w-4"/>
+                                            <span>Used</span>
+                                        </div>
+                                    ) : (
+                                         <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                                            <BadgeCheck className="h-4 w-4"/>
+                                            <span>Not Used</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                           </div>
+                        )}
                       </div>
-                      <Button onClick={handleCreateSelfGeneratedCode} className="w-full mt-4" disabled={isCreatingCode || !selfGeneratedCode.trim()}>
-                        {isCreatingCode ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                        {isCreatingCode ? 'Creating...' : 'Create Code'}
-                      </Button>
                   </CardContent>
               </Card>
 
@@ -568,4 +640,3 @@ export default function ThankYouPage() {
     </>
   );
 }
-
