@@ -24,11 +24,8 @@ const ADMIN_ROUTES = [
 
 // Dynamic routes that are protected.
 const DYNAMIC_PROTECTED_ROUTES_PREFIX = [
-  '/chat/'
-];
-
-const DYNAMIC_ADMIN_ROUTES_PREFIX = [
-    '/admin/',
+  '/chat/',
+  '/admin/'
 ];
 
 export function RootGuard({ children }: { children: React.ReactNode }) {
@@ -37,8 +34,7 @@ export function RootGuard({ children }: { children: React.ReactNode }) {
   const isDynamicProtected = DYNAMIC_PROTECTED_ROUTES_PREFIX.some(p => pathname.startsWith(p));
   const isProtectedRoute = PROTECTED_ROUTES.includes(pathname) || isDynamicProtected;
   
-  const isDynamicAdmin = DYNAMIC_ADMIN_ROUTES_PREFIX.some(p => pathname.startsWith(p));
-  const isAdminRoute = ADMIN_ROUTES.includes(pathname) || isDynamicAdmin;
+  const isAdminRoute = ADMIN_ROUTES.some(p => pathname.startsWith(p));
 
   if (isAdminRoute) {
       return <AuthGuard adminOnly={true}>{children}</AuthGuard>;

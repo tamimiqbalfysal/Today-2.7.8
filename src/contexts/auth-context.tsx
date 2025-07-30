@@ -39,21 +39,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let unsubscribeUser: Unsubscribe | null = null;
     let unsubscribeNotifications: Unsubscribe | null = null;
-    let unsubscribeAdmin: Unsubscribe | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       if (unsubscribeUser) unsubscribeUser();
       if (unsubscribeNotifications) unsubscribeNotifications();
-      if (unsubscribeAdmin) unsubscribeAdmin();
 
       if (firebaseUser) {
-        // Check admin status
-        if(firebaseUser.email) {
-            const adminDocRef = doc(db, 'admins', firebaseUser.email);
-            unsubscribeAdmin = onSnapshot(adminDocRef, (doc) => {
-                setIsAdmin(doc.exists());
-            });
-        }
+        setIsAdmin(firebaseUser.email === 'tamimiqbal.fysal@gmail.com');
         
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
@@ -114,7 +106,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       unsubscribeAuth();
       if (unsubscribeUser) unsubscribeUser();
       if (unsubscribeNotifications) unsubscribeNotifications();
-      if (unsubscribeAdmin) unsubscribeAdmin();
     };
   }, []);
 

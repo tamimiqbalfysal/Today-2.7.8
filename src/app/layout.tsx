@@ -3,6 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AppProviders } from '@/components/app-providers';
 import { ClientProviders } from '@/components/client-providers';
+import { RootGuard } from '@/components/auth/root-guard';
 
 export default function RootLayout({
   children,
@@ -18,9 +19,11 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
         <AppProviders>
-          <ClientProviders>
-            {children}
-          </ClientProviders>
+          <RootGuard>
+            <ClientProviders>
+              {children}
+            </ClientProviders>
+          </RootGuard>
         </AppProviders>
         <Toaster />
       </body>

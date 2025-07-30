@@ -8,7 +8,6 @@ import { Header } from '@/components/fintrack/header';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { NotificationSheet } from '@/components/fintrack/notification-sheet';
 import { FloatingCartButton } from '@/components/fintrack/floating-cart-button';
-import { RootGuard } from './auth/root-guard';
 
 export function ClientProviders({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -30,16 +29,14 @@ export function ClientProviders({ children }: { children: ReactNode }) {
   const showCart = user || ['/attom', '/checkout', '/office-express'].some(p => pathname.startsWith(p));
 
   return (
-    <RootGuard>
-        <div className="flex flex-col h-screen">
-          {showHeader && <Header isVisible={isHeaderVisible} />}
-          <ScrollArea className="flex-1" onScroll={handleScroll}>
-            <NotificationSheet>
-                {children}
-            </NotificationSheet>
-          </ScrollArea>
-          {showCart && <FloatingCartButton />}
-        </div>
-    </RootGuard>
+      <div className="flex flex-col h-screen">
+        {showHeader && <Header isVisible={isHeaderVisible} />}
+        <ScrollArea className="flex-1" onScroll={handleScroll}>
+          <NotificationSheet>
+              {children}
+          </NotificationSheet>
+        </ScrollArea>
+        {showCart && <FloatingCartButton />}
+      </div>
   );
 }
