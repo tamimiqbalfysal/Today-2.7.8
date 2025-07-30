@@ -9,12 +9,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, PlusCircle, Trash2 } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import type { User as AppUser } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useAuth } from '@/contexts/auth-context';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+
 
 export default function ManageAdminsPage() {
+  const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const [email, setEmail] = useState('');
   const [admins, setAdmins] = useState<AppUser[]>([]);
@@ -43,10 +47,14 @@ export default function ManageAdminsPage() {
         } finally {
             setIsLoading(false);
         }
+    }, (error) => {
+        console.error("Error listening to admins collection:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not load admin list. Check permissions.' });
+        setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [toast]);
 
   const handleAddAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,11 +68,12 @@ export default function ManageAdminsPage() {
         
         if (userSnapshot.empty) {
             toast({ variant: 'destructive', title: 'User Not Found', description: 'No user exists with that email address.' });
+            setIsSubmitting(false);
             return;
         }
         
         const adminRef = doc(db, 'admins', email.trim());
-        await setDoc(adminRef, { addedAt: new Date() });
+        await setDoc(adminRef, { addedAt: new Date(), addedBy: currentUser?.email });
 
         toast({ title: 'Admin Added', description: `${email} is now an administrator.` });
         setEmail('');
@@ -116,7 +125,8 @@ export default function ManageAdminsPage() {
                         />
                     </div>
                     <Button type="submit" disabled={isSubmitting || !email.trim()}>
-                        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
+                        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                        Add
                     </Button>
                 </form>
                 
@@ -136,9 +146,27 @@ export default function ManageAdminsPage() {
                                             <p className="text-sm text-muted-foreground">{admin.email}</p>
                                         </div>
                                     </div>
-                                    <Button variant="ghost" size="icon" onClick={() => handleRemoveAdmin(admin.email)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
+                                     <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                           <Button variant="ghost" size="icon" disabled={admin.email === 'tamimiqbal.fysal@gmail.com'}>
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    This will revoke all administrative privileges for {admin.name}. This action can be undone by adding them again.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleRemoveAdmin(admin.email)} className="bg-destructive hover:bg-destructive/90">
+                                                    Remove Admin
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
                                 </div>
                             ))
                         ) : (
