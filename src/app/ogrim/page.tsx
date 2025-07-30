@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -271,9 +272,14 @@ export default function OgrimPage() {
                         )}
                       <Input id="file-upload" type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" disabled={isSubmitting} />
                     </div>
-                    <Button type="submit" className="w-full" disabled={isSubmitting}>
-                      {isSubmitting ? 'Listing...' : 'List for Pre-order'}
-                    </Button>
+                    <div className="space-y-2">
+                      <Button type="submit" className="w-full" disabled={isSubmitting}>
+                        {isSubmitting ? 'Listing...' : 'List for Pre-order'}
+                      </Button>
+                      <Button asChild variant="outline" className="w-full">
+                        <Link href="/emarketplace">eMarketplace</Link>
+                      </Button>
+                    </div>
                   </form>
                 </CardContent>
               </Card>
@@ -310,5 +316,3 @@ export default function OgrimPage() {
       </div>
   );
 }
-
-    
