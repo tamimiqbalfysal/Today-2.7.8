@@ -37,6 +37,7 @@ const prompt = ai.definePrompt({
   - Separate words with either a dot (.) or an underscore (_).
   - End the code with a simple 2 or 3-digit number.
   - The overall code should be creative and fun.
+  - Do not use any of the words from the examples in the new code you generate.
 
   Examples:
   - we.love.coding_101
