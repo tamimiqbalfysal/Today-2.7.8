@@ -360,9 +360,14 @@ export default function ThankYouPage() {
                                 <Input id="sell-price" type="number" placeholder="e.g., 10.00" value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} disabled={isSelling} />
                             </div>
                         </div>
-                        <Button type="submit" className="w-full" disabled={isSelling || !sellAmount || !sellPrice}>
-                            {isSelling ? 'Listing...' : 'Create Listing'}
-                        </Button>
+                        <div className="space-y-2">
+                            <Button type="submit" className="w-full" disabled={isSelling || !sellAmount || !sellPrice}>
+                                {isSelling ? 'Listing...' : 'Create Listing'}
+                            </Button>
+                            <Button asChild variant="outline" className="w-full">
+                                <Link href="/emarketplace">eMarketplace</Link>
+                            </Button>
+                        </div>
                     </form>
                 </CardContent>
               </Card>
