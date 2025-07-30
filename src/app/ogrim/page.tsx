@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -98,17 +97,20 @@ export default function OgrimPage() {
     setIsLoadingProducts(true);
 
     const productsCollection = collection(db, 'posts');
-    const q = query(productsCollection, where('category', '==', 'Ogrim'), orderBy('timestamp', 'desc'));
+    const q = query(productsCollection, where('category', '==', 'Ogrim'));
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
         const fetchedProducts = snapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() } as OgrimProduct));
+            .map(doc => ({ id: doc.id, ...doc.data() } as OgrimProduct))
+            .filter(p => p.title !== "Globe" && p.title !== "Colorful Abstract Flower");
         
         const productsWithCounts = await Promise.all(fetchedProducts.map(async (p) => {
             const preordersRef = collection(db, `posts/${p.id}/preorders`);
             const preorderSnapshot = await getDocs(preordersRef);
             return { ...p, preOrderCount: preorderSnapshot.size };
         }));
+        
+        productsWithCounts.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
 
         setProducts(productsWithCounts);
         setIsLoadingProducts(false);
@@ -309,3 +311,4 @@ export default function OgrimPage() {
   );
 }
 
+    
