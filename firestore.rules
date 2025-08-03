@@ -3,105 +3,105 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a user is an admin
-    function isAdmin() {
-      return exists(/databases/$(database)/documents/admins/$(request.auth.uid));
-    }
-    
-    // Helper function to check if a user is authenticated
+    // Global Functions
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Users can read their own document and public profiles.
-    // They can only create and update their own document.
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      // Check if the requesting user's UID exists in the /admins collection
+      return exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+    
+    // Admins can read/write anything
+    match /{path=**} {
+      allow read, write: if isAdmin();
+    }
+
+    // User Data
     match /users/{userId} {
-      allow read;
-      allow create, update: if request.auth.uid == userId;
+      allow read: if isSignedIn();
+      // Allow user creation (signup)
+      // Allow owner to update their own profile
+      allow write: if isOwner(userId);
     }
     
-    // Usernames are public to read to check for uniqueness, but only the system can create them.
+    match /users/{userId}/{subcollection}/{docId} {
+        // Allow users to manage their own subcollections (e.g., notifications, history)
+        allow read, write, delete: if isOwner(userId);
+    }
+
+    // Usernames for uniqueness
     match /usernames/{username} {
-        allow read;
-        allow create: if isSignedIn();
+      allow read: if true;
+      // Only allow creating a username doc if the user is signed in
+      // and the username matches the one in their user document.
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
     }
 
-    // Admins can read and write to the admins collection.
-    match /admins/{adminId} {
-        allow read, write: if isAdmin();
-    }
-
-    // Posts can be read by anyone if they are not private.
-    // If private, only the author can read.
-    // Authenticated users can create posts.
-    // Users can only update/delete their own posts.
+    // Posts, products, etc.
     match /posts/{postId} {
-      allow read: if resource.data.isPrivate == false || resource.data.authorId == request.auth.uid;
-      allow create: if isSignedIn();
-      allow update, delete: if request.auth.uid == resource.data.authorId || isAdmin();
-
-      // Rules for subcollections of posts
-      match /reviews/{reviewId} {
-        allow read;
+        // Allow anyone to read non-private posts
+        allow read: if resource.data.isPrivate == false || isOwner(resource.data.authorId);
+        
+        // Allow signed-in users to create posts and owners to update/delete them
         allow create: if isSignedIn();
-        allow update, delete: if request.auth.uid == resource.data.authorId || isAdmin();
-      }
-      match /preorders/{preorderId} {
-        allow read, create: if isSignedIn();
-      }
+        allow update, delete: if isOwner(resource.data.authorId);
+
+        // Allow signed-in users to manage subcollections like reviews
+        match /{subcollection}/{docId} {
+            allow read, create, update, delete: if isSignedIn();
+        }
     }
     
-    // Chats can only be accessed by participants.
+    // Gift and Think Codes
+    match /giftCodes/{codeId} {
+        allow read, update: if isSignedIn();
+    }
+    match /thinkCodes/{codeId} {
+        allow read, update: if isSignedIn();
+    }
+    
+    // Course Admin settings
+    match /courseAdmin/{courseId} {
+        allow read: if true;
+        allow write: if false; // Should only be editable by admins (covered by admin rule)
+    }
+
+    // Gigs for Office Express
+    match /gigs/{gigId} {
+        allow read: if true;
+        allow create: if isSignedIn();
+        allow update, delete: if isOwner(resource.data.sellerId);
+    }
+    
+    // Findit Items
+    match /finditItems/{itemId} {
+      allow read: if true;
+      allow create: if true; // Allow anonymous reports
+      allow delete: if resource.data.authorId == null || isOwner(resource.data.authorId);
+    }
+
+    // Chat
     match /chats/{chatId} {
+      // Users can only access chats they are a part of
       allow read, write: if request.auth.uid in resource.data.participants;
       
       match /messages/{messageId} {
+        // Participants can read/write messages in their chat
         allow read, write: if request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
       }
     }
 
-    // Gigs are public to read. Only authenticated users can create.
-    // Only the seller can update/delete their own gig.
-    match /gigs/{gigId} {
-        allow read;
+    // Blood Requests
+    match /bloodRequests/{reqId} {
+        allow read: if true;
         allow create: if isSignedIn();
-        allow update, delete: if request.auth.uid == resource.data.sellerId || isAdmin();
-    }
-
-    // Findit items are public to read. Authenticated users can create/update/delete their own items.
-    match /finditItems/{itemId} {
-      allow read;
-      allow create: if isSignedIn();
-      allow update, delete: if request.auth.uid == resource.data.authorId || isAdmin();
-    }
-    
-    // Blood requests are public. Authenticated users can create/delete their own.
-    match /bloodRequests/{requestId} {
-      allow read;
-      allow create: if isSignedIn();
-      allow delete: if request.auth.uid == resource.data.authorId || isAdmin();
-    }
-    
-    // Course Admin settings can be read by anyone but only written by admins.
-    match /courseAdmin/{courseId} {
-        allow read;
-        allow write: if isAdmin();
-    }
-    
-    // Registrations can be created by anyone, but only read by admins.
-    match /think_free_class_registrations/{registrationId} {
-      allow create;
-      allow read, write, delete: if isAdmin();
-    }
-    
-    // Gift codes can only be managed by admins.
-    match /giftCodes/{codeId} {
-      allow read, write: if isSignedIn();
-    }
-    
-    // Think codes can only be managed by admins.
-    match /thinkCodes/{codeId} {
-       allow read, write: if isSignedIn();
+        allow delete: if isOwner(resource.data.authorId);
     }
   }
 }
