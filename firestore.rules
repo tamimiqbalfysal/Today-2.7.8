@@ -1,107 +1,124 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Global Functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
     
+    // Helper function to check for admin privileges
     function isAdmin() {
-      // Check if the requesting user's UID exists in the /admins collection
       return exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
     
-    // Admins can read/write anything
-    match /{path=**} {
-      allow read, write: if isAdmin();
-    }
-
-    // User Data
+    // `users` collection:
+    // read: Anyone can read public user profiles.
+    // create: Anyone can create their own user document during signup.
+    // update: A user can only update their own profile.
     match /users/{userId} {
-      allow read: if isSignedIn();
-      // Allow user creation (signup)
-      // Allow owner to update their own profile
-      allow write: if isOwner(userId);
+      allow read: if true;
+      allow create: if request.auth.uid == userId;
+      allow update: if request.auth.uid == userId || isAdmin();
     }
     
-    match /users/{userId}/{subcollection}/{docId} {
-        // Allow users to manage their own subcollections (e.g., notifications, history)
-        allow read, write, delete: if isOwner(userId);
-    }
-
-    // Usernames for uniqueness
+    // `usernames` collection (for ensuring unique usernames):
+    // read: Anyone can check if a username exists.
+    // create: A user can claim a username if it doesn't exist.
     match /usernames/{username} {
-      allow read: if true;
-      // Only allow creating a username doc if the user is signed in
-      // and the username matches the one in their user document.
-      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+        allow read;
+        allow create: if request.auth.uid != null;
     }
 
-    // Posts, products, etc.
+    // `posts` collection (used for products, feed posts, etc.):
+    // read: Anyone can read public posts, but only the author can read their private posts.
+    // create: Any authenticated user can create a post.
+    // update: An author can update their own post. Any authenticated user can react/comment.
+    // delete: An author can delete their own post. Admins can delete any post.
     match /posts/{postId} {
-        // Allow anyone to read non-private posts
-        allow read: if resource.data.isPrivate == false || isOwner(resource.data.authorId);
-        
-        // Allow signed-in users to create posts and owners to update/delete them
-        allow create: if isSignedIn();
-        allow update, delete: if isOwner(resource.data.authorId);
+      allow read: if resource.data.isPrivate == false || resource.data.authorId == request.auth.uid;
+      allow create: if request.auth.uid != null;
+      allow update: if request.auth.uid != null;
+      allow delete: if request.auth.uid == resource.data.authorId || isAdmin();
 
-        // Allow signed-in users to manage subcollections like reviews
-        match /{subcollection}/{docId} {
-            allow read, create, update, delete: if isSignedIn();
-        }
-    }
-    
-    // Gift and Think Codes
-    match /giftCodes/{codeId} {
-        allow read, update: if isSignedIn();
-    }
-    match /thinkCodes/{codeId} {
-        allow read, update: if isSignedIn();
-    }
-    
-    // Course Admin settings
-    match /courseAdmin/{courseId} {
+      // `reviews` subcollection:
+      // read: Anyone can read reviews.
+      // create: Any authenticated user can create a review.
+      match /reviews/{reviewId} {
         allow read: if true;
-        allow write: if false; // Should only be editable by admins (covered by admin rule)
-    }
-
-    // Gigs for Office Express
-    match /gigs/{gigId} {
-        allow read: if true;
-        allow create: if isSignedIn();
-        allow update, delete: if isOwner(resource.data.sellerId);
-    }
-    
-    // Findit Items
-    match /finditItems/{itemId} {
-      allow read: if true;
-      allow create: if true; // Allow anonymous reports
-      allow delete: if resource.data.authorId == null || isOwner(resource.data.authorId);
-    }
-
-    // Chat
-    match /chats/{chatId} {
-      // Users can only access chats they are a part of
-      allow read, write: if request.auth.uid in resource.data.participants;
+        allow create: if request.auth.uid != null;
+      }
       
-      match /messages/{messageId} {
-        // Participants can read/write messages in their chat
-        allow read, write: if request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+      // `preorders` subcollection:
+      // read: Only the product owner can read preorder data.
+      // create: Anyone can create a preorder.
+      match /preorders/{preorderId} {
+        allow read: if get(/databases/$(database)/documents/posts/$(postId)).data.authorId == request.auth.uid;
+        allow create: if true;
       }
     }
+    
+    // `chats` collection:
+    // read/write: Only participants of the chat can access it.
+    match /chats/{chatId} {
+      allow read, write: if request.auth.uid in resource.data.participants;
+      
+      // `messages` subcollection:
+      // read/write: Only participants of the parent chat can access messages.
+      match /messages/{messageId} {
+          allow read, write: if request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+      }
+    }
+    
+    // `giftCodes` and `thinkCodes`:
+    // read: Any authenticated user can check if a code exists.
+    // create/update: Only admins can manage codes.
+    match /giftCodes/{codeId} {
+        allow read: if request.auth.uid != null;
+        allow create, update: if isAdmin();
+    }
 
-    // Blood Requests
-    match /bloodRequests/{reqId} {
+    match /thinkCodes/{codeId} {
+        allow read: if request.auth.uid != null;
+        allow create, update: if isAdmin();
+    }
+    
+    // `courseAdmin` settings:
+    // read: Anyone can read course details.
+    // write: Only admins can update course details.
+    match /courseAdmin/{courseId} {
         allow read: if true;
-        allow create: if isSignedIn();
-        allow delete: if isOwner(resource.data.authorId);
+        allow write: if isAdmin();
+    }
+    
+    // `think_free_class_registrations`:
+    // read: Admins can read the list of registrations.
+    // create: Anyone can register.
+    match /think_free_class_registrations/{regId} {
+        allow read: if isAdmin();
+        allow create: if true;
+    }
+
+    // `finditItems`:
+    // read: Anyone can see lost and found items.
+    // create: Anyone can report an item.
+    // delete: Only the author of the report can delete it.
+    match /finditItems/{itemId} {
+      allow read: if true;
+      allow create: if true;
+      allow delete: if request.auth.uid == resource.data.authorId;
+    }
+    
+    // `gigs`:
+    // read: Anyone can see gigs.
+    // create/update/delete: Only admins (for now, should be seller)
+    match /gigs/{gigId} {
+      allow read: if true;
+      allow create: if request.auth.uid != null;
+      allow update, delete: if request.auth.uid == resource.data.sellerId || isAdmin();
+    }
+    
+    // `admins`:
+    // read/write: Only other admins can manage the admin list.
+    match /admins/{adminId} {
+      allow read, write: if isAdmin();
     }
   }
 }
