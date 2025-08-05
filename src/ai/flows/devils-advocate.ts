@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -11,12 +12,12 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const DevilsAdvocateInputSchema = z.object({
+const DevilsAdvocateInputSchema = z.object({
   statement: z.string().describe('The user-provided statement to be debated.'),
 });
 export type DevilsAdvocateInput = z.infer<typeof DevilsAdvocateInputSchema>;
 
-export const DevilsAdvocateOutputSchema = z.object({
+const DevilsAdvocateOutputSchema = z.object({
   inFavor: z
     .string()
     .describe('Well-reasoned arguments, evidence, or examples that support the user’s statement.'),
