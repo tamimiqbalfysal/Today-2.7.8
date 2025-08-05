@@ -17,22 +17,27 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 const apps: DrawerApp[] = [
   { id: 'chhutir-dine', name: 'Chhutir Dine', logo: 'https://placehold.co/48x48/ff9800/FFFFFF?text=C', href: '/chhutir-dine' },
   { id: 'findit', name: 'Findit', logo: '/findit-logo.png', href: '/findit' },
+  { id: 'itself', name: 'Itself', logo: 'https://placehold.co/48x48/2196f3/ffffff?text=I', href: '/itself' },
   { id: 'mingle', name: 'Mingle', logo: '/mingle-logo.png', href: '#' },
   { id: 'office-express', name: 'Office Express', logo: 'https://placehold.co/48x48/4caf50/ffffff?text=O', href: '/office-express' },
+  { id: 'ogrim', name: 'Ogrim', logo: 'https://placehold.co/48x48/fde047/000000?text=O', href: '/ogrim' },
   { id: 'roktim', name: 'Roktim', logo: 'https://placehold.co/48x48/e53935/ffffff?text=R', href: '/roktim' },
   { id: 'thankug', name: 'Thanku G', logo: '/thankug-logo.png', href: '/thank-you' },
   { id: 'think', name: 'Think', logo: '/think-logo.png', href: '/think' },
   { id: 'translate2', name: 'Translate2', logo: 'https://placehold.co/48x48/fde047/000000?text=T', href: '/translate2' },
-  { id: 'ogrim', name: 'Ogrim', logo: 'https://placehold.co/48x48/fde047/000000?text=O', href: '/ogrim' },
   { id: 'tribe', name: 'Tribe', logo: 'https://placehold.co/48x48/009688/ffffff?text=T', href: '/tribe' },
   { id: 'video-bazaar', name: 'Video Bazaar', logo: 'https://placehold.co/48x48/ffc107/000000?text=V', href: '/video-bazaar' },
 ];
 
 const moreApps: DrawerApp[] = [
+    { id: 'food-factory', name: 'Food Factory', logo: 'https://placehold.co/48x48/ff5722/ffffff?text=F', href: '/food-factory' },
     { id: 'gamezone', name: 'Gamezone', logo: 'https://placehold.co/48x48/4caf50/FFFFFF?text=G', href: '/gamezone' },
     { id: 'vertigo', name: 'Vertigo', logo: 'https://placehold.co/48x48/9c27b0/ffffff?text=V', href: '/vertigo' },
-    { id: 'food-factory', name: 'Food Factory', logo: 'https://placehold.co/48x48/ff5722/ffffff?text=F', href: '/food-factory' },
 ];
+
+// Sort apps alphabetically by name
+apps.sort((a, b) => a.name.localeCompare(b.name));
+moreApps.sort((a, b) => a.name.localeCompare(b.name));
 
 export default function AddPage() {
   const [searchTerm, setSearchTerm] = useState('');
